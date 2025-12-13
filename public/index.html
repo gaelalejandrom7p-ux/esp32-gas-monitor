@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Gas Monitor V2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="login-logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
+                    </svg>
+                </div>
+                <span class="login-subtitle">Sistema de Monitoreo V2.0</span>
+                <h1 class="login-title">ESP32 Gas Monitor</h1>
+                <p class="login-desc">Monitoreo remoto en tiempo real</p>
+            </div>
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="username">Usuario</label>
+                    <input type="text" id="username" class="form-input" placeholder="Ingresa tu usuario" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Contraseña</label>
+                    <input type="password" id="password" class="form-input" placeholder="Ingresa tu contraseña" required>
+                </div>
+                <div class="form-error" id="loginError"></div>
+                <button type="submit" class="btn btn-primary btn-full">Iniciar Sesión</button>
+            </form>
+            <div class="login-footer">
+                <p>¿No tienes cuenta? <a href="#" id="showRegister">Regístrate aquí</a></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="login-overlay" id="registerOverlay" style="display: none;">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="login-logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M19 8v6M22 11h-6"/>
+                    </svg>
+                </div>
+                <span class="login-subtitle">Crear cuenta</span>
+                <h1 class="login-title">Registro</h1>
+            </div>
+            <form class="login-form" id="registerForm">
+                <div class="form-group">
+                    <label class="form-label" for="regName">Nombre completo</label>
+                    <input type="text" id="regName" class="form-input" placeholder="Tu nombre" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regUsername">Usuario</label>
+                    <input type="text" id="regUsername" class="form-input" placeholder="Elige un usuario" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regEmail">Correo</label>
+                    <input type="email" id="regEmail" class="form-input" placeholder="tu@correo.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regPassword">Contraseña</label>
+                    <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 8 caracteres" required minlength="8">
+                </div>
+                <div class="form-error" id="registerError"></div>
+                <button type="submit" class="btn btn-primary btn-full">Crear Cuenta</button>
+            </form>
+            <div class="login-footer">
+                <p>¿Ya tienes cuenta? <a href="#" id="showLogin">Inicia sesión</a></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container" id="appContainer" style="display: none;">
+        <header class="header">
+            <div class="logo-section">
+                <span class="logo">Sistema de Monitoreo Remoto V2.0</span>
+                <h1 class="title">ESP32 <span>Gas Monitor</span></h1>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <span class="user-name" id="currentUser">Usuario</span>
+                    <button class="btn btn-small" id="logoutBtn">Salir</button>
+                </div>
+            </div>
+        </header>
+
+        <section class="esp32-status-panel">
+            <div class="esp32-status">
+                <div class="status-icon" id="esp32StatusIcon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>
+                    </svg>
+                </div>
+                <div class="status-info">
+                    <span class="status-label">Estado del ESP32</span>
+                    <span class="status-value" id="esp32StatusText">Esperando conexión...</span>
+                    <span class="status-detail" id="esp32StatusDetail">El ESP32 enviará datos automáticamente</span>
+                </div>
+            </div>
+            <div class="connection-info">
+                <div class="info-item">
+                    <span class="info-label">Estado del Sistema</span>
+                    <span class="info-value" id="systemState">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Última Actualización</span>
+                    <span class="info-value" id="lastUpdate">--:--:--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">WebSocket</span>
+                    <span class="info-value" id="wsStatus">Conectando...</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="sensors-grid">
+            <article class="sensor-card">
+                <div class="sensor-header">
+                    <div class="sensor-info">
+                        <span class="sensor-label">Sensor TGS5042</span>
+                        <h2 class="sensor-name">Monóxido de Carbono</h2>
+                    </div>
+                    <div class="sensor-icon co">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg>
+                    </div>
+                </div>
+                <div class="value-display">
+                    <span class="value" id="coValue">---</span>
+                    <span class="unit">unidades</span>
+                </div>
+                <div class="level-indicator">
+                    <div class="level-header">
+                        <span class="level-label">Nivel</span>
+                        <span class="level-status" id="coStatus">Sin Datos</span>
+                    </div>
+                    <div class="level-bar"><div class="level-fill" id="coLevel"></div></div>
+                </div>
+                <div class="avg-display">
+                    <span class="avg-label">Promedio última prueba:</span>
+                    <span class="avg-value" id="avgCO">--</span>
+                </div>
+            </article>
+
+            <article class="sensor-card">
+                <div class="sensor-header">
+                    <div class="sensor-info">
+                        <span class="sensor-label">Sensor CGM6812-B00</span>
+                        <h2 class="sensor-name">Hidrocarburos</h2>
+                    </div>
+                    <div class="sensor-icon hc">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    </div>
+                </div>
+                <div class="value-display">
+                    <span class="value" id="hcValue">---</span>
+                    <span class="unit">unidades</span>
+                </div>
+                <div class="level-indicator">
+                    <div class="level-header">
+                        <span class="level-label">Nivel</span>
+                        <span class="level-status" id="hcStatus">Sin Datos</span>
+                    </div>
+                    <div class="level-bar"><div class="level-fill" id="hcLevel"></div></div>
+                </div>
+                <div class="avg-display">
+                    <span class="avg-label">Promedio última prueba:</span>
+                    <span class="avg-value" id="avgHC">--</span>
+                </div>
+            </article>
+        </section>
+
+        <section class="control-panel">
+            <div class="control-header">
+                <span class="control-title">Panel de Control</span>
+                <span class="reading-count">Lecturas: <span id="readingCount">0</span></span>
+            </div>
+            <div class="controls-grid">
+                <button class="btn" id="pauseBtn">
+                    <svg id="pauseIcon" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    <span id="pauseText">Pausar</span>
+                </button>
+                <button class="btn btn-danger" id="clearBtn">
+                    <svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    Limpiar
+                </button>
+                <button class="btn btn-primary" id="pdfBtn">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg>
+                    Exportar PDF
+                </button>
+            </div>
+        </section>
+
+        <section class="history-section">
+            <div class="history-header">
+                <span class="history-title">Historial de Lecturas (Tiempo Real)</span>
+            </div>
+            <div class="history-container">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Hora</th>
+                            <th>CO</th>
+                            <th>HC</th>
+                            <th>Estado CO</th>
+                            <th>Estado HC</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody">
+                        <tr><td colspan="6" class="empty-history">Esperando datos del ESP32...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <span>ESP32 Gas Monitor V2.0 - Monitoreo Remoto</span>
+            <span>Sistema de Monitoreo de Contaminación</span>
+        </footer>
+    </div>
+
+    <div class="modal-overlay" id="pdfModal">
+        <div class="modal">
+            <h3 class="modal-title">Exportar a PDF</h3>
+            <p class="modal-text">Se generará un reporte con todas las lecturas. ¿Continuar?</p>
+            <div class="modal-actions">
+                <button class="btn" id="cancelPdfBtn">Cancelar</button>
+                <button class="btn btn-primary" id="confirmPdfBtn">Generar PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

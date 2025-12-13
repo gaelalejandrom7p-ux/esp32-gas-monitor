@@ -1,0 +1,21 @@
+{
+  "name": "esp32-gas-monitor-v2",
+  "version": "2.0.0",
+  "description": "Sistema de Monitoreo de Gases con ESP32 - Version Remota",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^10.0.1",
+    "ws": "^8.14.2"
+  }
+}
