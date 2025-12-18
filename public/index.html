@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Gas Monitor V2</title>
+    <title>ESP32 Gas Monitor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -60,7 +60,6 @@
             </div>
         </header>
 
-        <!-- PANEL ESP32 STATUS -->
         <section class="esp32-status-panel">
             <div class="esp32-status">
                 <div class="status-icon" id="esp32StatusIcon">
@@ -90,7 +89,6 @@
             </div>
         </section>
 
-        <!-- SENSORES -->
         <section class="sensors-grid">
             <article class="sensor-card">
                 <div class="sensor-header">
@@ -104,7 +102,7 @@
                 </div>
                 <div class="value-display">
                     <span class="value" id="coValue">---</span>
-                    <span class="unit">unidades</span>
+                    <span class="unit">ppm</span>
                 </div>
                 <div class="level-indicator">
                     <div class="level-header">
@@ -131,7 +129,7 @@
                 </div>
                 <div class="value-display">
                     <span class="value" id="hcValue">---</span>
-                    <span class="unit">unidades</span>
+                    <span class="unit">ppm</span>
                 </div>
                 <div class="level-indicator">
                     <div class="level-header">
@@ -147,7 +145,6 @@
             </article>
         </section>
 
-        <!-- CONTROLES -->
         <section class="control-panel">
             <div class="control-header">
                 <span class="control-title">Panel de Control</span>
@@ -169,7 +166,6 @@
             </div>
         </section>
 
-        <!-- HISTORIAL -->
         <section class="history-section">
             <div class="history-header">
                 <span class="history-title">Historial de Lecturas (Tiempo Real)</span>
@@ -177,14 +173,7 @@
             <div class="history-container">
                 <table class="history-table">
                     <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Hora</th>
-                            <th>CO</th>
-                            <th>HC</th>
-                            <th>Estado CO</th>
-                            <th>Estado HC</th>
-                        </tr>
+                        <tr><th>#</th><th>Hora</th><th>CO</th><th>HC</th><th>Estado CO</th><th>Estado HC</th></tr>
                     </thead>
                     <tbody id="historyBody">
                         <tr><td colspan="6" class="empty-history">Esperando datos del ESP32...</td></tr>
@@ -194,7 +183,7 @@
         </section>
 
         <footer class="footer">
-            <span>ESP32 Gas Monitor V2.0 - Monitoreo Remoto</span>
+            <span>ESP32 Gas Monitor V2.0</span>
             <span>Sistema de Monitoreo de Contaminación</span>
         </footer>
     </div>
@@ -211,7 +200,7 @@
         </div>
     </div>
 
-    <!-- MODAL ADMIN USUARIOS -->
+    <!-- MODAL ADMIN -->
     <div class="modal-overlay" id="adminModal">
         <div class="modal modal-large">
             <div class="modal-header">
@@ -225,14 +214,7 @@
                 <div class="users-table-container">
                     <table class="users-table">
                         <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Usuario</th>
-                                <th>Nombre</th>
-                                <th>Email</th>
-                                <th>Rol</th>
-                                <th>Acciones</th>
-                            </tr>
+                            <tr><th>ID</th><th>Usuario</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Acciones</th></tr>
                         </thead>
                         <tbody id="usersTableBody">
                             <tr><td colspan="6" class="empty-history">Cargando usuarios...</td></tr>
@@ -243,7 +225,7 @@
         </div>
     </div>
 
-    <!-- MODAL CREAR/EDITAR USUARIO -->
+    <!-- MODAL USUARIO -->
     <div class="modal-overlay" id="userFormModal">
         <div class="modal">
             <div class="modal-header">
@@ -284,11 +266,11 @@
         </div>
     </div>
 
-    <!-- MODAL CONFIRMAR ELIMINAR -->
+    <!-- MODAL ELIMINAR -->
     <div class="modal-overlay" id="deleteModal">
         <div class="modal">
             <h3 class="modal-title">Confirmar Eliminación</h3>
-            <p class="modal-text">¿Estás seguro de eliminar al usuario <strong id="deleteUserName"></strong>?</p>
+            <p class="modal-text">¿Eliminar al usuario <strong id="deleteUserName"></strong>?</p>
             <p class="modal-text text-danger">Esta acción no se puede deshacer.</p>
             <input type="hidden" id="deleteUserId">
             <div class="modal-actions">
