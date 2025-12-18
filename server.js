@@ -13,7 +13,7 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'clave_secreta_v2_2024';
+const JWT_SECRET = process.env.JWT_SECRET || 'clave_secreta_jwt_2024';
 const ESP32_TOKEN = process.env.ESP32_TOKEN || 'esp32_token_seguro_2024';
 
 let pool;
@@ -31,10 +31,54 @@ const connectedClients = new Set();
 async function initializeDatabase() {
     if (!pool) { console.log('⚠ No DATABASE_URL'); return; }
     try {
-        await pool.query(`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, email VARCHAR(100) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, name VARCHAR(100) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
-        await pool.query(`CREATE TABLE IF NOT EXISTS sensor_readings (id SERIAL PRIMARY KEY, co_value DECIMAL(10,2) NOT NULL, hc_value DECIMAL(10,2) NOT NULL, co_status VARCHAR(20), hc_status VARCHAR(20), system_state VARCHAR(50), esp32_ip VARCHAR(50), timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                name VARCHAR(100) NOT NULL,
+                role VARCHAR(20) DEFAULT 'user',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        await pool.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='role') THEN
+                    ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user';
+                END IF;
+            END $$;
+        `);
+        
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS sensor_readings (
+                id SERIAL PRIMARY KEY,
+                co_value DECIMAL(10,2) NOT NULL,
+                hc_value DECIMAL(10,2) NOT NULL,
+                co_status VARCHAR(20),
+                hc_status VARCHAR(20),
+                system_state VARCHAR(50),
+                esp32_ip VARCHAR(50),
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        const adminExists = await pool.query("SELECT id FROM users WHERE username = 'admin'");
+        if (adminExists.rows.length === 0) {
+            const adminHash = await bcrypt.hash('adminTec176', 10);
+            await pool.query(
+                "INSERT INTO users (username, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)",
+                ['admin', 'admin@cmec.app', adminHash, 'Administrador', 'admin']
+            );
+            console.log('✓ Admin creado (usuario: admin)');
+        }
+        
         console.log('✓ Conectado a PostgreSQL');
-    } catch (error) { console.log('✗ Error BD:', error.message); }
+    } catch (error) { 
+        console.log('✗ Error BD:', error.message); 
+    }
 }
 
 function getStatus(type, value) {
@@ -63,7 +107,7 @@ wss.on('connection', (ws) => {
     ws.on('close', () => connectedClients.delete(ws));
 });
 
-app.use(cors({ origin: '*', methods: ['GET', 'POST', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization', 'X-ESP32-Token'] }));
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization', 'X-ESP32-Token'] }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -72,10 +116,19 @@ function authenticateToken(req, res, next) {
     if (!token) return res.status(401).json({ success: false, message: 'Token requerido' });
     jwt.verify(token, JWT_SECRET, (err, user) => {
         if (err) return res.status(403).json({ success: false, message: 'Token inválido' });
-        req.user = user; next();
+        req.user = user;
+        next();
     });
 }
 
+function requireAdmin(req, res, next) {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Acceso denegado. Se requiere rol de administrador.' });
+    }
+    next();
+}
+
+// ENDPOINTS ESP32
 app.post('/api/esp32/data', (req, res) => {
     const token = req.headers['x-esp32-token'];
     if (token !== ESP32_TOKEN) return res.status(401).json({ success: false, message: 'Token inválido' });
@@ -90,45 +143,120 @@ app.post('/api/esp32/data', (req, res) => {
 });
 
 app.get('/api/esp32/status', (req, res) => res.json({ success: true, ...esp32Status }));
+
+// ENDPOINTS LECTURAS
 app.get('/api/readings/latest', (req, res) => res.json({ success: true, data: latestReading, esp32Status }));
+
 app.get('/api/readings/history', async (req, res) => {
     if (!pool) return res.json({ success: true, readings: [] });
     const result = await pool.query('SELECT * FROM sensor_readings ORDER BY timestamp DESC LIMIT 100');
     res.json({ success: true, readings: result.rows });
 });
+
 app.delete('/api/readings', authenticateToken, async (req, res) => {
     if (pool) await pool.query('DELETE FROM sensor_readings');
     res.json({ success: true });
 });
 
-app.post('/api/auth/register', async (req, res) => {
-    const { username, email, password, name } = req.body;
-    if (!username || !email || !password || !name) return res.status(400).json({ success: false, message: 'Campos requeridos' });
-    if (!pool) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    const existing = await pool.query('SELECT id FROM users WHERE username = $1 OR email = $2', [username, email]);
-    if (existing.rows.length > 0) return res.status(409).json({ success: false, message: 'Usuario ya existe' });
-    const hash = await bcrypt.hash(password, 10);
-    const result = await pool.query('INSERT INTO users (username, email, password_hash, name) VALUES ($1,$2,$3,$4) RETURNING id', [username, email, hash, name]);
-    res.status(201).json({ success: true, message: 'Usuario creado', userId: result.rows[0].id });
-});
-
+// ENDPOINTS AUTH
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ success: false, message: 'Credenciales requeridas' });
     if (!pool) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     if (result.rows.length === 0) return res.status(401).json({ success: false, message: 'Credenciales incorrectas' });
+    
     const user = result.rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ success: false, message: 'Credenciales incorrectas' });
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ success: true, token, user: { id: user.id, username: user.username, email: user.email, name: user.name } });
+    
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ success: true, token, user: { id: user.id, username: user.username, email: user.email, name: user.name, role: user.role } });
 });
 
-app.get('/api/auth/verify', authenticateToken, (req, res) => res.json({ success: true, user: req.user }));
+app.get('/api/auth/verify', authenticateToken, async (req, res) => {
+    if (pool) {
+        const result = await pool.query('SELECT id, username, email, name, role FROM users WHERE id = $1', [req.user.id]);
+        if (result.rows.length > 0) return res.json({ success: true, user: result.rows[0] });
+    }
+    res.json({ success: true, user: req.user });
+});
+
+// ENDPOINTS ADMIN
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, username, email, name, role, created_at FROM users ORDER BY created_at DESC');
+        res.json({ success: true, users: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al obtener usuarios' });
+    }
+});
+
+app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { username, email, password, name, role } = req.body;
+        if (!username || !email || !password || !name) {
+            return res.status(400).json({ success: false, message: 'Todos los campos son requeridos' });
+        }
+        const existing = await pool.query('SELECT id FROM users WHERE username = $1 OR email = $2', [username, email]);
+        if (existing.rows.length > 0) {
+            return res.status(409).json({ success: false, message: 'Usuario o correo ya existe' });
+        }
+        const hash = await bcrypt.hash(password, 10);
+        const result = await pool.query(
+            'INSERT INTO users (username, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email, name, role, created_at',
+            [username, email, hash, name, role || 'user']
+        );
+        res.status(201).json({ success: true, message: 'Usuario creado', user: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al crear usuario' });
+    }
+});
+
+app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username, email, password, name, role } = req.body;
+        const userExists = await pool.query('SELECT id FROM users WHERE id = $1', [id]);
+        if (userExists.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        }
+        let query = 'UPDATE users SET username = $1, email = $2, name = $3, role = $4';
+        let params = [username, email, name, role || 'user'];
+        if (password && password.trim() !== '') {
+            const hash = await bcrypt.hash(password, 10);
+            query += ', password_hash = $5 WHERE id = $6 RETURNING id, username, email, name, role';
+            params.push(hash, id);
+        } else {
+            query += ' WHERE id = $5 RETURNING id, username, email, name, role';
+            params.push(id);
+        }
+        const result = await pool.query(query, params);
+        res.json({ success: true, message: 'Usuario actualizado', user: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al actualizar usuario' });
+    }
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await pool.query('SELECT username FROM users WHERE id = $1', [id]);
+        if (user.rows.length > 0 && user.rows[0].username === 'admin') {
+            return res.status(403).json({ success: false, message: 'No se puede eliminar al administrador principal' });
+        }
+        await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        res.json({ success: true, message: 'Usuario eliminado' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al eliminar usuario' });
+    }
+});
+
 app.get('/api/health', (req, res) => res.json({ success: true, server: 'online', database: pool ? 'connected' : 'disconnected', esp32: esp32Status.connected }));
+
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 initializeDatabase().then(() => {
-    server.listen(PORT, '0.0.0.0', () => console.log(`Servidor en puerto ${PORT}`));
+    server.listen(PORT, '0.0.0.0', () => console.log(` ESP32 Gas Monitor V2.0 en puerto ${PORT}`));
 });
