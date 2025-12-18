@@ -258,5 +258,5 @@ app.get('/api/health', (req, res) => res.json({ success: true, server: 'online',
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 initializeDatabase().then(() => {
-    server.listen(PORT, '0.0.0.0', () => console.log(` ESP32 Gas Monitor V2.0 en puerto ${PORT}`));
+    server.listen(PORT, '0.0.0.0', () => console.log(`🚀 ESP32 Gas Monitor V2.0 en puerto ${PORT}`));
 });
