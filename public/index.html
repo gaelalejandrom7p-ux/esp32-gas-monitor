@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <!-- LOGIN -->
     <div class="login-overlay" id="loginOverlay">
         <div class="login-container">
             <div class="login-header">
@@ -37,50 +38,12 @@
                 <button type="submit" class="btn btn-primary btn-full">Iniciar Sesión</button>
             </form>
             <div class="login-footer">
-                <p>¿No tienes cuenta? <a href="#" id="showRegister">Regístrate aquí</a></p>
+                <p>Contacte al administrador para obtener acceso</p>
             </div>
         </div>
     </div>
 
-    <div class="login-overlay" id="registerOverlay" style="display: none;">
-        <div class="login-container">
-            <div class="login-header">
-                <div class="login-logo">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M19 8v6M22 11h-6"/>
-                    </svg>
-                </div>
-                <span class="login-subtitle">Crear cuenta</span>
-                <h1 class="login-title">Registro</h1>
-            </div>
-            <form class="login-form" id="registerForm">
-                <div class="form-group">
-                    <label class="form-label" for="regName">Nombre completo</label>
-                    <input type="text" id="regName" class="form-input" placeholder="Tu nombre" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regUsername">Usuario</label>
-                    <input type="text" id="regUsername" class="form-input" placeholder="Elige un usuario" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regEmail">Correo</label>
-                    <input type="email" id="regEmail" class="form-input" placeholder="tu@correo.com" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regPassword">Contraseña</label>
-                    <input type="password" id="regPassword" class="form-input" placeholder="Mínimo 8 caracteres" required minlength="8">
-                </div>
-                <div class="form-error" id="registerError"></div>
-                <button type="submit" class="btn btn-primary btn-full">Crear Cuenta</button>
-            </form>
-            <div class="login-footer">
-                <p>¿Ya tienes cuenta? <a href="#" id="showLogin">Inicia sesión</a></p>
-            </div>
-        </div>
-    </div>
-
+    <!-- APP PRINCIPAL -->
     <div class="app-container" id="appContainer" style="display: none;">
         <header class="header">
             <div class="logo-section">
@@ -90,11 +53,14 @@
             <div class="header-right">
                 <div class="user-info">
                     <span class="user-name" id="currentUser">Usuario</span>
+                    <span class="user-role" id="userRole"></span>
+                    <button class="btn btn-small" id="adminBtn" style="display: none;">Administrar Usuarios</button>
                     <button class="btn btn-small" id="logoutBtn">Salir</button>
                 </div>
             </div>
         </header>
 
+        <!-- PANEL ESP32 STATUS -->
         <section class="esp32-status-panel">
             <div class="esp32-status">
                 <div class="status-icon" id="esp32StatusIcon">
@@ -124,6 +90,7 @@
             </div>
         </section>
 
+        <!-- SENSORES -->
         <section class="sensors-grid">
             <article class="sensor-card">
                 <div class="sensor-header">
@@ -180,6 +147,7 @@
             </article>
         </section>
 
+        <!-- CONTROLES -->
         <section class="control-panel">
             <div class="control-header">
                 <span class="control-title">Panel de Control</span>
@@ -201,6 +169,7 @@
             </div>
         </section>
 
+        <!-- HISTORIAL -->
         <section class="history-section">
             <div class="history-header">
                 <span class="history-title">Historial de Lecturas (Tiempo Real)</span>
@@ -230,6 +199,7 @@
         </footer>
     </div>
 
+    <!-- MODAL PDF -->
     <div class="modal-overlay" id="pdfModal">
         <div class="modal">
             <h3 class="modal-title">Exportar a PDF</h3>
@@ -237,6 +207,93 @@
             <div class="modal-actions">
                 <button class="btn" id="cancelPdfBtn">Cancelar</button>
                 <button class="btn btn-primary" id="confirmPdfBtn">Generar PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ADMIN USUARIOS -->
+    <div class="modal-overlay" id="adminModal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3 class="modal-title">Administración de Usuarios</h3>
+                <button class="btn-close" id="closeAdminModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="addUserBtn">+ Nuevo Usuario</button>
+                </div>
+                <div class="users-table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuario</th>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr><td colspan="6" class="empty-history">Cargando usuarios...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CREAR/EDITAR USUARIO -->
+    <div class="modal-overlay" id="userFormModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="userFormTitle">Nuevo Usuario</h3>
+                <button class="btn-close" id="closeUserFormModal">&times;</button>
+            </div>
+            <form id="userForm">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label class="form-label">Nombre completo</label>
+                    <input type="text" id="userFormName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Usuario</label>
+                    <input type="text" id="userFormUsername" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="userFormEmail" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contraseña <span id="passwordHint">(mínimo 8 caracteres)</span></label>
+                    <input type="password" id="userFormPassword" class="form-input" minlength="8">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Rol</label>
+                    <select id="userFormRole" class="form-input">
+                        <option value="user">Usuario</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div class="form-error" id="userFormError"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" id="cancelUserForm">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMAR ELIMINAR -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <h3 class="modal-title">Confirmar Eliminación</h3>
+            <p class="modal-text">¿Estás seguro de eliminar al usuario <strong id="deleteUserName"></strong>?</p>
+            <p class="modal-text text-danger">Esta acción no se puede deshacer.</p>
+            <input type="hidden" id="deleteUserId">
+            <div class="modal-actions">
+                <button class="btn" id="cancelDeleteBtn">Cancelar</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
             </div>
         </div>
     </div>
