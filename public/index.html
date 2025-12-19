@@ -239,14 +239,18 @@
                     <div class="steps-indicator">
                         <div class="step active" data-step="1">
                             <span class="step-number">1</span>
-                            <span class="step-title">Datos del Vehículo</span>
+                            <span class="step-title">Vehículo</span>
                         </div>
                         <div class="step" data-step="2">
                             <span class="step-number">2</span>
-                            <span class="step-title">Especificaciones</span>
+                            <span class="step-title">Propietario</span>
                         </div>
                         <div class="step" data-step="3">
                             <span class="step-number">3</span>
+                            <span class="step-title">Especificaciones</span>
+                        </div>
+                        <div class="step" data-step="4">
+                            <span class="step-number">4</span>
                             <span class="step-title">Verificación</span>
                         </div>
                     </div>
@@ -292,6 +296,7 @@
                             </div>
                         </div>
                         <div class="form-actions">
+                            <button type="button" class="btn" id="btnCancelarForm">Cancelar</button>
                             <button type="button" class="btn btn-primary btn-next" data-next="2">
                                 Siguiente
                                 <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
@@ -299,8 +304,53 @@
                         </div>
                     </div>
 
-                    <!-- PASO 2: Especificaciones -->
+                    <!-- PASO 2: Datos del Propietario -->
                     <div class="form-step" data-step="2">
+                        <h3 class="step-header">
+                            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            Datos del Propietario
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label class="form-label">Nombre Completo del Propietario *</label>
+                                <input type="text" id="vPropietarioNombre" class="form-input" placeholder="Nombre completo" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Teléfono</label>
+                                <input type="tel" id="vPropietarioTelefono" class="form-input" placeholder="10 dígitos">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tipo de Servicio *</label>
+                                <select id="vServicio" class="form-input" required>
+                                    <option value="">Selecciona</option>
+                                    <option value="Particular">Particular (Privado)</option>
+                                    <option value="Público">Público (Taxi/Transporte)</option>
+                                </select>
+                            </div>
+                            <div class="form-group full-width">
+                                <label class="form-label">Domicilio</label>
+                                <textarea id="vPropietarioDomicilio" class="form-input" rows="2" placeholder="Calle, número, colonia, ciudad..."></textarea>
+                            </div>
+                            <div class="form-group full-width concesionaria-field" style="display: none;">
+                                <label class="form-label">Base Concesionaria *</label>
+                                <input type="text" id="vBaseConcesionaria" class="form-input" placeholder="Nombre de la base o concesionaria">
+                                <span class="form-hint">Requerido para vehículos de servicio público</span>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-prev" data-prev="1">
+                                <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+                                Anterior
+                            </button>
+                            <button type="button" class="btn btn-primary btn-next" data-next="3">
+                                Siguiente
+                                <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PASO 3: Especificaciones -->
+                    <div class="form-step" data-step="3">
                         <h3 class="step-header">
                             <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
                             Especificaciones Técnicas
@@ -371,42 +421,33 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Tipo de Servicio</label>
-                                <select id="vServicio" class="form-input">
-                                    <option value="">Selecciona</option>
-                                    <option value="Particular">Particular</option>
-                                    <option value="Público">Público</option>
-                                    <option value="Carga">Carga</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
                                 <label class="form-label">Peso Bruto Vehicular</label>
                                 <input type="text" id="vPeso" class="form-input" placeholder="Ej: 1500 kg">
                             </div>
+                            <div class="form-group">
+                                <label class="form-label"># Tarjeta de Circulación</label>
+                                <input type="text" id="vTarjeta" class="form-input" placeholder="Número de tarjeta">
+                            </div>
                         </div>
                         <div class="form-actions">
-                            <button type="button" class="btn btn-prev" data-prev="1">
+                            <button type="button" class="btn btn-prev" data-prev="2">
                                 <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
                                 Anterior
                             </button>
-                            <button type="button" class="btn btn-primary btn-next" data-next="3">
+                            <button type="button" class="btn btn-primary btn-next" data-next="4">
                                 Siguiente
                                 <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
                             </button>
                         </div>
                     </div>
 
-                    <!-- PASO 3: Verificación -->
-                    <div class="form-step" data-step="3">
+                    <!-- PASO 4: Verificación -->
+                    <div class="form-step" data-step="4">
                         <h3 class="step-header">
                             <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             Datos de Verificación
                         </h3>
                         <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label"># Tarjeta de Circulación</label>
-                                <input type="text" id="vTarjeta" class="form-input" placeholder="Número de tarjeta">
-                            </div>
                             <div class="form-group">
                                 <label class="form-label">Lectura Odómetro</label>
                                 <input type="text" id="vOdometro" class="form-input" placeholder="Ej: 45000 km">
@@ -439,7 +480,7 @@
                             </div>
                         </div>
                         <div class="form-actions">
-                            <button type="button" class="btn btn-prev" data-prev="2">
+                            <button type="button" class="btn btn-prev" data-prev="3">
                                 <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
                                 Anterior
                             </button>
