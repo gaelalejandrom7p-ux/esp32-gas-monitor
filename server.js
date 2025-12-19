@@ -26,11 +26,38 @@ if (process.env.DATABASE_URL) {
 
 let latestReading = null;
 let esp32Status = { connected: false, lastSeen: null, ip: null, systemState: 'DESCONOCIDO' };
+let currentVehicleId = null;
 const connectedClients = new Set();
+
+// Catálogo de Marcas y Modelos
+const CATALOGO_VEHICULOS = {
+    "Nissan": ["Versa", "Sentra", "March", "Kicks", "X-Trail", "Frontier", "NP300", "Altima", "Maxima", "Pathfinder", "Otro"],
+    "Chevrolet": ["Aveo", "Spark", "Beat", "Cavalier", "Onix", "Trax", "Equinox", "Silverado", "Colorado", "Tahoe", "Suburban", "Otro"],
+    "Volkswagen": ["Jetta", "Vento", "Polo", "Golf", "Tiguan", "Taos", "Virtus", "Passat", "Beetle", "CrossFox", "Otro"],
+    "Toyota": ["Yaris", "Corolla", "Camry", "RAV4", "Hilux", "Tacoma", "Prius", "Highlander", "4Runner", "Sienna", "Otro"],
+    "Honda": ["Civic", "City", "HR-V", "CR-V", "Accord", "Fit", "Pilot", "Odyssey", "BR-V", "Otro"],
+    "Ford": ["Fiesta", "Focus", "Fusion", "Escape", "Explorer", "Ranger", "F-150", "Mustang", "Edge", "Expedition", "Otro"],
+    "Mazda": ["Mazda 2", "Mazda 3", "Mazda 6", "CX-3", "CX-30", "CX-5", "CX-9", "MX-5", "Otro"],
+    "Hyundai": ["Grand i10", "Accent", "Elantra", "Tucson", "Santa Fe", "Creta", "Palisade", "Sonata", "Otro"],
+    "Kia": ["Rio", "Forte", "Seltos", "Sportage", "Sorento", "Telluride", "Soul", "Carnival", "Otro"],
+    "Suzuki": ["Swift", "Ignis", "Vitara", "S-Cross", "Jimny", "Ciaz", "Ertiga", "Otro"],
+    "Renault": ["Kwid", "Logan", "Duster", "Koleos", "Oroch", "Captur", "Stepway", "Otro"],
+    "SEAT": ["Ibiza", "Arona", "Ateca", "Leon", "Tarraco", "Toledo", "Otro"],
+    "Audi": ["A1", "A3", "A4", "A5", "Q3", "Q5", "Q7", "Q8", "TT", "Otro"],
+    "BMW": ["Serie 1", "Serie 2", "Serie 3", "Serie 4", "X1", "X3", "X5", "X6", "Z4", "Otro"],
+    "Mercedes-Benz": ["Clase A", "Clase C", "Clase E", "GLA", "GLC", "GLE", "GLS", "Sprinter", "Otro"],
+    "Jeep": ["Renegade", "Compass", "Cherokee", "Grand Cherokee", "Wrangler", "Gladiator", "Otro"],
+    "RAM": ["700", "1200", "1500", "2500", "ProMaster", "Otro"],
+    "Mitsubishi": ["Mirage", "Lancer", "Outlander", "L200", "Eclipse Cross", "Montero", "Otro"],
+    "Peugeot": ["208", "301", "2008", "3008", "5008", "Partner", "Otro"],
+    "Fiat": ["Uno", "Mobi", "500", "Pulse", "Strada", "Ducato", "Otro"],
+    "Otro": ["Especificar en observaciones"]
+};
 
 async function initializeDatabase() {
     if (!pool) { console.log('⚠ No DATABASE_URL'); return; }
     try {
+        // Tabla usuarios
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -52,9 +79,43 @@ async function initializeDatabase() {
             END $$;
         `);
         
+        // Tabla vehículos
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS vehiculos (
+                id SERIAL PRIMARY KEY,
+                placas VARCHAR(20) UNIQUE NOT NULL,
+                vin VARCHAR(50),
+                marca VARCHAR(50) NOT NULL,
+                submarca VARCHAR(50),
+                linea VARCHAR(50),
+                anio INTEGER,
+                tipo_combustible VARCHAR(30),
+                num_cilindros INTEGER,
+                cilindrada VARCHAR(20),
+                tipo_carroceria VARCHAR(30),
+                clase VARCHAR(30),
+                tipo_servicio VARCHAR(30),
+                traccion VARCHAR(20),
+                peso_bruto VARCHAR(20),
+                tarjeta_circulacion VARCHAR(50),
+                folio_anterior VARCHAR(50),
+                vigencia_anterior DATE,
+                tiene_multa BOOLEAN DEFAULT FALSE,
+                fecha_pago_multa DATE,
+                folio_multa VARCHAR(50),
+                lectura_odometro VARCHAR(20),
+                observaciones TEXT,
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Tabla lecturas con relación a vehículos
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sensor_readings (
                 id SERIAL PRIMARY KEY,
+                vehiculo_id INTEGER REFERENCES vehiculos(id),
                 co_value DECIMAL(10,2) NOT NULL,
                 hc_value DECIMAL(10,2) NOT NULL,
                 co_status VARCHAR(20),
@@ -65,6 +126,17 @@ async function initializeDatabase() {
             )
         `);
         
+        // Agregar columna vehiculo_id si no existe
+        await pool.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sensor_readings' AND column_name='vehiculo_id') THEN
+                    ALTER TABLE sensor_readings ADD COLUMN vehiculo_id INTEGER REFERENCES vehiculos(id);
+                END IF;
+            END $$;
+        `);
+        
+        // Crear admin por defecto
         const adminExists = await pool.query("SELECT id FROM users WHERE username = 'admin'");
         if (adminExists.rows.length === 0) {
             const adminHash = await bcrypt.hash('adminTec176', 10);
@@ -76,6 +148,7 @@ async function initializeDatabase() {
         }
         
         console.log('✓ Conectado a PostgreSQL');
+        console.log('✓ Tablas verificadas (users, vehiculos, sensor_readings)');
     } catch (error) { 
         console.log('✗ Error BD:', error.message); 
     }
@@ -103,7 +176,7 @@ setInterval(() => {
 
 wss.on('connection', (ws) => {
     connectedClients.add(ws);
-    ws.send(JSON.stringify({ type: 'init', esp32Status, latestReading }));
+    ws.send(JSON.stringify({ type: 'init', esp32Status, latestReading, currentVehicleId }));
     ws.on('close', () => connectedClients.delete(ws));
 });
 
@@ -128,28 +201,48 @@ function requireAdmin(req, res, next) {
     next();
 }
 
+// =====================
 // ENDPOINTS ESP32
+// =====================
 app.post('/api/esp32/data', (req, res) => {
     const token = req.headers['x-esp32-token'];
     if (token !== ESP32_TOKEN) return res.status(401).json({ success: false, message: 'Token inválido' });
     
     const { co, hc, state: systemState, avgCO, avgHC } = req.body;
     esp32Status = { connected: true, lastSeen: Date.now(), ip: req.headers['x-forwarded-for'] || req.ip, systemState: systemState || 'ACTIVO' };
-    latestReading = { co: parseFloat(co), hc: parseFloat(hc), co_status: getStatus('co', co), hc_status: getStatus('hc', hc), system_state: systemState, avgCO, avgHC, timestamp: new Date().toISOString() };
+    latestReading = { co: parseFloat(co), hc: parseFloat(hc), co_status: getStatus('co', co), hc_status: getStatus('hc', hc), system_state: systemState, avgCO, avgHC, timestamp: new Date().toISOString(), vehiculo_id: currentVehicleId };
     broadcastToClients({ type: 'reading', data: latestReading, esp32Status });
-    if (pool) pool.query('INSERT INTO sensor_readings (co_value, hc_value, co_status, hc_status, system_state, esp32_ip) VALUES ($1,$2,$3,$4,$5,$6)', [co, hc, latestReading.co_status, latestReading.hc_status, systemState, esp32Status.ip]);
-    console.log(`📡 ESP32: CO=${co}, HC=${hc}`);
+    
+    if (pool) {
+        pool.query(
+            'INSERT INTO sensor_readings (vehiculo_id, co_value, hc_value, co_status, hc_status, system_state, esp32_ip) VALUES ($1,$2,$3,$4,$5,$6,$7)', 
+            [currentVehicleId, co, hc, latestReading.co_status, latestReading.hc_status, systemState, esp32Status.ip]
+        );
+    }
+    console.log(`📡 ESP32: CO=${co}, HC=${hc}, Vehículo=${currentVehicleId || 'Sin asignar'}`);
     res.json({ success: true });
 });
 
 app.get('/api/esp32/status', (req, res) => res.json({ success: true, ...esp32Status }));
 
+// =====================
 // ENDPOINTS LECTURAS
+// =====================
 app.get('/api/readings/latest', (req, res) => res.json({ success: true, data: latestReading, esp32Status }));
 
 app.get('/api/readings/history', async (req, res) => {
     if (!pool) return res.json({ success: true, readings: [] });
-    const result = await pool.query('SELECT * FROM sensor_readings ORDER BY timestamp DESC LIMIT 100');
+    const { vehiculo_id } = req.query;
+    let query = 'SELECT sr.*, v.placas, v.marca, v.submarca FROM sensor_readings sr LEFT JOIN vehiculos v ON sr.vehiculo_id = v.id';
+    let params = [];
+    
+    if (vehiculo_id) {
+        query += ' WHERE sr.vehiculo_id = $1';
+        params.push(vehiculo_id);
+    }
+    query += ' ORDER BY sr.timestamp DESC LIMIT 100';
+    
+    const result = await pool.query(query, params);
     res.json({ success: true, readings: result.rows });
 });
 
@@ -158,7 +251,9 @@ app.delete('/api/readings', authenticateToken, async (req, res) => {
     res.json({ success: true });
 });
 
+// =====================
 // ENDPOINTS AUTH
+// =====================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ success: false, message: 'Credenciales requeridas' });
@@ -183,7 +278,9 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
     res.json({ success: true, user: req.user });
 });
 
-// ENDPOINTS ADMIN
+// =====================
+// ENDPOINTS ADMIN USUARIOS
+// =====================
 app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const result = await pool.query('SELECT id, username, email, name, role, created_at FROM users ORDER BY created_at DESC');
@@ -253,7 +350,204 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
     }
 });
 
-app.get('/api/health', (req, res) => res.json({ success: true, server: 'online', database: pool ? 'connected' : 'disconnected', esp32: esp32Status.connected }));
+// =====================
+// ENDPOINTS VEHÍCULOS
+// =====================
+
+// Obtener catálogo de marcas y modelos
+app.get('/api/vehiculos/catalogo', (req, res) => {
+    res.json({ success: true, catalogo: CATALOGO_VEHICULOS });
+});
+
+// Obtener todos los vehículos
+app.get('/api/vehiculos', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT v.*, u.name as created_by_name,
+                   (SELECT COUNT(*) FROM sensor_readings WHERE vehiculo_id = v.id) as total_lecturas
+            FROM vehiculos v 
+            LEFT JOIN users u ON v.created_by = u.id 
+            ORDER BY v.created_at DESC
+        `);
+        res.json({ success: true, vehiculos: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al obtener vehículos' });
+    }
+});
+
+// Obtener un vehículo por ID
+app.get('/api/vehiculos/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM vehiculos WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Vehículo no encontrado' });
+        }
+        res.json({ success: true, vehiculo: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al obtener vehículo' });
+    }
+});
+
+// Buscar vehículo por placas
+app.get('/api/vehiculos/buscar/:placas', authenticateToken, async (req, res) => {
+    try {
+        const { placas } = req.params;
+        const result = await pool.query('SELECT * FROM vehiculos WHERE UPPER(placas) = UPPER($1)', [placas]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Vehículo no encontrado' });
+        }
+        res.json({ success: true, vehiculo: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al buscar vehículo' });
+    }
+});
+
+// Crear vehículo
+app.post('/api/vehiculos', authenticateToken, async (req, res) => {
+    try {
+        const { 
+            placas, vin, marca, submarca, linea, anio, tipo_combustible, 
+            num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
+            traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
+            vigencia_anterior, tiene_multa, fecha_pago_multa, folio_multa,
+            lectura_odometro, observaciones
+        } = req.body;
+        
+        if (!placas || !marca) {
+            return res.status(400).json({ success: false, message: 'Placas y marca son requeridos' });
+        }
+        
+        // Verificar si ya existe
+        const existing = await pool.query('SELECT id FROM vehiculos WHERE UPPER(placas) = UPPER($1)', [placas]);
+        if (existing.rows.length > 0) {
+            return res.status(409).json({ success: false, message: 'Ya existe un vehículo con esas placas' });
+        }
+        
+        const result = await pool.query(`
+            INSERT INTO vehiculos (
+                placas, vin, marca, submarca, linea, anio, tipo_combustible,
+                num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
+                traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
+                vigencia_anterior, tiene_multa, fecha_pago_multa, folio_multa,
+                lectura_odometro, observaciones, created_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+            RETURNING *
+        `, [
+            placas.toUpperCase(), vin, marca, submarca, linea, anio, tipo_combustible,
+            num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
+            traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
+            vigencia_anterior || null, tiene_multa || false, fecha_pago_multa || null, folio_multa,
+            lectura_odometro, observaciones, req.user.id
+        ]);
+        
+        res.status(201).json({ success: true, message: 'Vehículo registrado', vehiculo: result.rows[0] });
+    } catch (error) {
+        console.error('Error creando vehículo:', error);
+        res.status(500).json({ success: false, message: 'Error al registrar vehículo' });
+    }
+});
+
+// Actualizar vehículo
+app.put('/api/vehiculos/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { 
+            placas, vin, marca, submarca, linea, anio, tipo_combustible, 
+            num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
+            traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
+            vigencia_anterior, tiene_multa, fecha_pago_multa, folio_multa,
+            lectura_odometro, observaciones
+        } = req.body;
+        
+        const result = await pool.query(`
+            UPDATE vehiculos SET
+                placas = $1, vin = $2, marca = $3, submarca = $4, linea = $5,
+                anio = $6, tipo_combustible = $7, num_cilindros = $8, cilindrada = $9,
+                tipo_carroceria = $10, clase = $11, tipo_servicio = $12, traccion = $13,
+                peso_bruto = $14, tarjeta_circulacion = $15, folio_anterior = $16,
+                vigencia_anterior = $17, tiene_multa = $18, fecha_pago_multa = $19,
+                folio_multa = $20, lectura_odometro = $21, observaciones = $22,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $23 RETURNING *
+        `, [
+            placas.toUpperCase(), vin, marca, submarca, linea, anio, tipo_combustible,
+            num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
+            traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
+            vigencia_anterior || null, tiene_multa || false, fecha_pago_multa || null, folio_multa,
+            lectura_odometro, observaciones, id
+        ]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Vehículo no encontrado' });
+        }
+        
+        res.json({ success: true, message: 'Vehículo actualizado', vehiculo: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al actualizar vehículo' });
+    }
+});
+
+// Eliminar vehículo
+app.delete('/api/vehiculos/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Primero eliminar lecturas asociadas
+        await pool.query('DELETE FROM sensor_readings WHERE vehiculo_id = $1', [id]);
+        await pool.query('DELETE FROM vehiculos WHERE id = $1', [id]);
+        res.json({ success: true, message: 'Vehículo eliminado' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al eliminar vehículo' });
+    }
+});
+
+// Seleccionar vehículo actual para lecturas
+app.post('/api/vehiculos/seleccionar/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM vehiculos WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Vehículo no encontrado' });
+        }
+        currentVehicleId = parseInt(id);
+        broadcastToClients({ type: 'vehiculo_seleccionado', vehiculo: result.rows[0] });
+        res.json({ success: true, message: 'Vehículo seleccionado', vehiculo: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al seleccionar vehículo' });
+    }
+});
+
+// Deseleccionar vehículo
+app.post('/api/vehiculos/deseleccionar', authenticateToken, (req, res) => {
+    currentVehicleId = null;
+    broadcastToClients({ type: 'vehiculo_deseleccionado' });
+    res.json({ success: true, message: 'Vehículo deseleccionado' });
+});
+
+// Obtener lecturas de un vehículo específico
+app.get('/api/vehiculos/:id/lecturas', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            'SELECT * FROM sensor_readings WHERE vehiculo_id = $1 ORDER BY timestamp DESC LIMIT 100',
+            [id]
+        );
+        res.json({ success: true, lecturas: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al obtener lecturas' });
+    }
+});
+
+// =====================
+// ENDPOINTS GENERALES
+// =====================
+app.get('/api/health', (req, res) => res.json({ 
+    success: true, 
+    server: 'online', 
+    database: pool ? 'connected' : 'disconnected', 
+    esp32: esp32Status.connected,
+    currentVehicle: currentVehicleId
+}));
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
