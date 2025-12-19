@@ -1,4 +1,6 @@
-//Estado Global
+// =====================
+// ESTADO GLOBAL
+// =====================
 let ws = null;
 let authToken = localStorage.getItem('authToken');
 let currentUser = null;
@@ -98,27 +100,39 @@ const elements = {
     buscarPlacas: $('buscarPlacas'),
     btnBuscarVehiculo: $('btnBuscarVehiculo'),
     btnNuevoVehiculo: $('btnNuevoVehiculo'),
+    btnCancelarForm: $('btnCancelarForm'),
     vehicleFormContainer: $('vehicleFormContainer'),
     vehiculoForm: $('vehiculoForm'),
     vehiculoId: $('vehiculoId'),
     vehiclesGrid: $('vehiclesGrid'),
+    vehiclesList: $('vehiclesList'),
     
-    // Campos del formulario vehículo
+    // Campos del formulario vehículo - Paso 1
     vPlacas: $('vPlacas'),
     vVin: $('vVin'),
     vMarca: $('vMarca'),
     vSubmarca: $('vSubmarca'),
     vLinea: $('vLinea'),
     vAnio: $('vAnio'),
+    
+    // Campos del formulario vehículo - Paso 2 (Propietario)
+    vPropietarioNombre: $('vPropietarioNombre'),
+    vPropietarioTelefono: $('vPropietarioTelefono'),
+    vPropietarioDomicilio: $('vPropietarioDomicilio'),
+    vServicio: $('vServicio'),
+    vBaseConcesionaria: $('vBaseConcesionaria'),
+    
+    // Campos del formulario vehículo - Paso 3
     vCombustible: $('vCombustible'),
     vCilindros: $('vCilindros'),
     vCilindrada: $('vCilindrada'),
     vCarroceria: $('vCarroceria'),
     vClase: $('vClase'),
-    vServicio: $('vServicio'),
     vTraccion: $('vTraccion'),
     vPeso: $('vPeso'),
     vTarjeta: $('vTarjeta'),
+    
+    // Campos del formulario vehículo - Paso 4
     vOdometro: $('vOdometro'),
     vFolioAnterior: $('vFolioAnterior'),
     vVigencia: $('vVigencia'),
@@ -185,9 +199,11 @@ function setupEventListeners() {
     elements.btnBuscarVehiculo.addEventListener('click', buscarVehiculo);
     elements.buscarPlacas.addEventListener('keypress', (e) => { if (e.key === 'Enter') buscarVehiculo(); });
     elements.btnNuevoVehiculo.addEventListener('click', mostrarFormularioNuevo);
+    elements.btnCancelarForm.addEventListener('click', ocultarFormulario);
     elements.vehiculoForm.addEventListener('submit', handleVehiculoSubmit);
     elements.vMarca.addEventListener('change', actualizarSubmarcas);
     elements.vTieneMulta.addEventListener('change', toggleMultaFields);
+    elements.vServicio.addEventListener('change', toggleConcesionariaField);
     
     // Pasos del formulario
     document.querySelectorAll('.btn-next').forEach(btn => {
@@ -490,10 +506,11 @@ function generatePDF() {
     doc.text(`Usuario: ${currentUser.name}`, 20, 36);
     if (vehiculoSeleccionado) {
         doc.text(`Vehículo: ${vehiculoSeleccionado.placas} - ${vehiculoSeleccionado.marca} ${vehiculoSeleccionado.submarca || ''}`, 20, 42);
+        doc.text(`Propietario: ${vehiculoSeleccionado.propietario_nombre || 'N/A'}`, 20, 48);
     }
-    doc.text(`Total de lecturas: ${readings.length}`, 20, 48);
+    doc.text(`Total de lecturas: ${readings.length}`, 20, 54);
     
-    let y = 60;
+    let y = 65;
     doc.setFontSize(10);
     doc.text('#', 20, y);
     doc.text('Hora', 35, y);
@@ -564,6 +581,30 @@ function populateYears() {
 }
 
 // =====================
+// CAMPOS CONDICIONALES
+// =====================
+function toggleMultaFields() {
+    const tieneMulta = elements.vTieneMulta.checked;
+    document.querySelectorAll('.multa-fields').forEach(el => {
+        el.style.display = tieneMulta ? 'block' : 'none';
+    });
+}
+
+function toggleConcesionariaField() {
+    const servicio = elements.vServicio.value;
+    const concesionariaField = document.querySelector('.concesionaria-field');
+    
+    if (servicio === 'Público') {
+        concesionariaField.style.display = 'block';
+        elements.vBaseConcesionaria.required = true;
+    } else {
+        concesionariaField.style.display = 'none';
+        elements.vBaseConcesionaria.required = false;
+        elements.vBaseConcesionaria.value = '';
+    }
+}
+
+// =====================
 // VEHÍCULOS
 // =====================
 async function loadVehiculos() {
@@ -596,6 +637,11 @@ function renderVehiculos(vehiculos) {
                 </div>
                 <span class="vehicle-card-placas">${v.placas}</span>
             </div>
+            <div class="vehicle-card-owner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                ${v.propietario_nombre || 'Sin propietario'}
+                <span class="vehicle-card-badge ${v.tipo_servicio === 'Público' ? 'publico' : 'particular'}">${v.tipo_servicio || 'N/A'}</span>
+            </div>
             <div class="vehicle-card-details">
                 <div class="vehicle-detail">
                     <span class="vehicle-detail-label">Combustible:</span>
@@ -608,12 +654,12 @@ function renderVehiculos(vehiculos) {
             </div>
             <div class="vehicle-card-stats">
                 <div class="vehicle-stat">
-                    <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                     ${v.total_lecturas || 0} lecturas
                 </div>
             </div>
             <div class="vehicle-card-actions">
-                <button class="btn btn-primary btn-small" onclick="abrirModalSeleccion(${v.id}, '${v.placas}', '${v.marca}', '${v.submarca || ''}')">
+                <button class="btn btn-primary btn-small" onclick="abrirModalSeleccion(${v.id}, '${v.placas}', '${v.marca}', '${v.submarca || ''}', '${v.propietario_nombre || ''}')">
                     Iniciar Prueba
                 </button>
                 <button class="btn btn-small" onclick="editarVehiculo(${v.id})">Editar</button>
@@ -655,7 +701,15 @@ function mostrarFormularioNuevo() {
     elements.vehiculoId.value = '';
     elements.vehicleFormContainer.style.display = 'block';
     elements.vehiclesList.style.display = 'none';
+    toggleConcesionariaField();
+    toggleMultaFields();
     goToStep(1);
+}
+
+function ocultarFormulario() {
+    elements.vehicleFormContainer.style.display = 'none';
+    elements.vehiclesList.style.display = 'block';
+    elements.vehiculoForm.reset();
 }
 
 function llenarFormularioVehiculo(v) {
@@ -667,15 +721,26 @@ function llenarFormularioVehiculo(v) {
     setTimeout(() => { elements.vSubmarca.value = v.submarca || ''; }, 100);
     elements.vLinea.value = v.linea || '';
     elements.vAnio.value = v.anio || '';
+    
+    // Propietario
+    elements.vPropietarioNombre.value = v.propietario_nombre || '';
+    elements.vPropietarioTelefono.value = v.propietario_telefono || '';
+    elements.vPropietarioDomicilio.value = v.propietario_domicilio || '';
+    elements.vServicio.value = v.tipo_servicio || '';
+    toggleConcesionariaField();
+    elements.vBaseConcesionaria.value = v.base_concesionaria || '';
+    
+    // Especificaciones
     elements.vCombustible.value = v.tipo_combustible || '';
     elements.vCilindros.value = v.num_cilindros || '';
     elements.vCilindrada.value = v.cilindrada || '';
     elements.vCarroceria.value = v.tipo_carroceria || '';
     elements.vClase.value = v.clase || '';
-    elements.vServicio.value = v.tipo_servicio || '';
     elements.vTraccion.value = v.traccion || '';
     elements.vPeso.value = v.peso_bruto || '';
     elements.vTarjeta.value = v.tarjeta_circulacion || '';
+    
+    // Verificación
     elements.vOdometro.value = v.lectura_odometro || '';
     elements.vFolioAnterior.value = v.folio_anterior || '';
     elements.vVigencia.value = v.vigencia_anterior ? v.vigencia_anterior.split('T')[0] : '';
@@ -684,6 +749,7 @@ function llenarFormularioVehiculo(v) {
     elements.vFechaMulta.value = v.fecha_pago_multa ? v.fecha_pago_multa.split('T')[0] : '';
     elements.vFolioMulta.value = v.folio_multa || '';
     elements.vObservaciones.value = v.observaciones || '';
+    
     goToStep(1);
 }
 
@@ -702,13 +768,6 @@ async function editarVehiculo(id) {
     } catch (error) {
         alert('Error al cargar vehículo');
     }
-}
-
-function toggleMultaFields() {
-    const tieneMulta = elements.vTieneMulta.checked;
-    document.querySelectorAll('.multa-fields').forEach(el => {
-        el.style.display = tieneMulta ? 'block' : 'none';
-    });
 }
 
 function goToStep(step) {
@@ -732,6 +791,13 @@ function goToStep(step) {
 async function handleVehiculoSubmit(e) {
     e.preventDefault();
     
+    // Validar base concesionaria si es servicio público
+    if (elements.vServicio.value === 'Público' && !elements.vBaseConcesionaria.value.trim()) {
+        alert('La Base Concesionaria es requerida para vehículos de servicio público');
+        goToStep(2);
+        return;
+    }
+    
     const vehiculoData = {
         placas: elements.vPlacas.value.trim(),
         vin: elements.vVin.value.trim(),
@@ -739,15 +805,25 @@ async function handleVehiculoSubmit(e) {
         submarca: elements.vSubmarca.value,
         linea: elements.vLinea.value.trim(),
         anio: elements.vAnio.value ? parseInt(elements.vAnio.value) : null,
+        
+        // Propietario
+        propietario_nombre: elements.vPropietarioNombre.value.trim(),
+        propietario_telefono: elements.vPropietarioTelefono.value.trim(),
+        propietario_domicilio: elements.vPropietarioDomicilio.value.trim(),
+        tipo_servicio: elements.vServicio.value,
+        base_concesionaria: elements.vBaseConcesionaria.value.trim(),
+        
+        // Especificaciones
         tipo_combustible: elements.vCombustible.value,
         num_cilindros: elements.vCilindros.value ? parseInt(elements.vCilindros.value) : null,
         cilindrada: elements.vCilindrada.value.trim(),
         tipo_carroceria: elements.vCarroceria.value,
         clase: elements.vClase.value,
-        tipo_servicio: elements.vServicio.value,
         traccion: elements.vTraccion.value,
         peso_bruto: elements.vPeso.value.trim(),
         tarjeta_circulacion: elements.vTarjeta.value.trim(),
+        
+        // Verificación
         lectura_odometro: elements.vOdometro.value.trim(),
         folio_anterior: elements.vFolioAnterior.value.trim(),
         vigencia_anterior: elements.vVigencia.value || null,
@@ -775,9 +851,7 @@ async function handleVehiculoSubmit(e) {
         
         if (data.success) {
             alert(id ? 'Vehículo actualizado correctamente' : 'Vehículo registrado correctamente');
-            elements.vehicleFormContainer.style.display = 'none';
-            elements.vehiclesList.style.display = 'block';
-            elements.vehiculoForm.reset();
+            ocultarFormulario();
             loadVehiculos();
         } else {
             alert(data.message || 'Error al guardar vehículo');
@@ -790,11 +864,12 @@ async function handleVehiculoSubmit(e) {
 // =====================
 // SELECCIÓN DE VEHÍCULO
 // =====================
-function abrirModalSeleccion(id, placas, marca, submarca) {
+function abrirModalSeleccion(id, placas, marca, submarca, propietario) {
     elements.selectVehicleId.value = id;
     elements.vehiclePreview.innerHTML = `
         <strong>${placas}</strong><br>
-        ${marca} ${submarca}
+        ${marca} ${submarca}<br>
+        <small style="color: #a3a3a3;">Propietario: ${propietario || 'N/A'}</small>
     `;
     elements.selectVehicleModal.classList.add('active');
 }
@@ -824,7 +899,7 @@ async function confirmarSeleccionVehiculo() {
 
 function mostrarVehiculoActivo(vehiculo) {
     vehiculoSeleccionado = vehiculo;
-    elements.vehiculoActivoText.textContent = `${vehiculo.placas} - ${vehiculo.marca} ${vehiculo.submarca || ''}`;
+    elements.vehiculoActivoText.textContent = `${vehiculo.placas} - ${vehiculo.marca} ${vehiculo.submarca || ''} (${vehiculo.propietario_nombre || 'Sin propietario'})`;
     elements.vehiculoActivo.style.display = 'flex';
 }
 
