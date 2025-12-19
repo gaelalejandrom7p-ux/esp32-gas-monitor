@@ -105,10 +105,33 @@ async function initializeDatabase() {
                 folio_multa VARCHAR(50),
                 lectura_odometro VARCHAR(20),
                 observaciones TEXT,
+                propietario_nombre VARCHAR(150),
+                propietario_telefono VARCHAR(20),
+                propietario_domicilio TEXT,
+                base_concesionaria VARCHAR(150),
                 created_by INTEGER REFERENCES users(id),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        `);
+        
+        // Agregar columnas nuevas si no existen
+        await pool.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vehiculos' AND column_name='propietario_nombre') THEN
+                    ALTER TABLE vehiculos ADD COLUMN propietario_nombre VARCHAR(150);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vehiculos' AND column_name='propietario_telefono') THEN
+                    ALTER TABLE vehiculos ADD COLUMN propietario_telefono VARCHAR(20);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vehiculos' AND column_name='propietario_domicilio') THEN
+                    ALTER TABLE vehiculos ADD COLUMN propietario_domicilio TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vehiculos' AND column_name='base_concesionaria') THEN
+                    ALTER TABLE vehiculos ADD COLUMN base_concesionaria VARCHAR(150);
+                END IF;
+            END $$;
         `);
         
         // Tabla lecturas con relación a vehículos
@@ -411,7 +434,8 @@ app.post('/api/vehiculos', authenticateToken, async (req, res) => {
             num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
             traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
             vigencia_anterior, tiene_multa, fecha_pago_multa, folio_multa,
-            lectura_odometro, observaciones
+            lectura_odometro, observaciones, propietario_nombre, 
+            propietario_telefono, propietario_domicilio, base_concesionaria
         } = req.body;
         
         if (!placas || !marca) {
@@ -430,15 +454,17 @@ app.post('/api/vehiculos', authenticateToken, async (req, res) => {
                 num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
                 traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
                 vigencia_anterior, tiene_multa, fecha_pago_multa, folio_multa,
-                lectura_odometro, observaciones, created_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+                lectura_odometro, observaciones, propietario_nombre,
+                propietario_telefono, propietario_domicilio, base_concesionaria, created_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
             RETURNING *
         `, [
             placas.toUpperCase(), vin, marca, submarca, linea, anio, tipo_combustible,
             num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
             traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
             vigencia_anterior || null, tiene_multa || false, fecha_pago_multa || null, folio_multa,
-            lectura_odometro, observaciones, req.user.id
+            lectura_odometro, observaciones, propietario_nombre,
+            propietario_telefono, propietario_domicilio, base_concesionaria, req.user.id
         ]);
         
         res.status(201).json({ success: true, message: 'Vehículo registrado', vehiculo: result.rows[0] });
@@ -457,7 +483,8 @@ app.put('/api/vehiculos/:id', authenticateToken, async (req, res) => {
             num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
             traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
             vigencia_anterior, tiene_multa, fecha_pago_multa, folio_multa,
-            lectura_odometro, observaciones
+            lectura_odometro, observaciones, propietario_nombre,
+            propietario_telefono, propietario_domicilio, base_concesionaria
         } = req.body;
         
         const result = await pool.query(`
@@ -468,14 +495,17 @@ app.put('/api/vehiculos/:id', authenticateToken, async (req, res) => {
                 peso_bruto = $14, tarjeta_circulacion = $15, folio_anterior = $16,
                 vigencia_anterior = $17, tiene_multa = $18, fecha_pago_multa = $19,
                 folio_multa = $20, lectura_odometro = $21, observaciones = $22,
+                propietario_nombre = $23, propietario_telefono = $24,
+                propietario_domicilio = $25, base_concesionaria = $26,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $23 RETURNING *
+            WHERE id = $27 RETURNING *
         `, [
             placas.toUpperCase(), vin, marca, submarca, linea, anio, tipo_combustible,
             num_cilindros, cilindrada, tipo_carroceria, clase, tipo_servicio,
             traccion, peso_bruto, tarjeta_circulacion, folio_anterior,
             vigencia_anterior || null, tiene_multa || false, fecha_pago_multa || null, folio_multa,
-            lectura_odometro, observaciones, id
+            lectura_odometro, observaciones, propietario_nombre,
+            propietario_telefono, propietario_domicilio, base_concesionaria, id
         ]);
         
         if (result.rows.length === 0) {
