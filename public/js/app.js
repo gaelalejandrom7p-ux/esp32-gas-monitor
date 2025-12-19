@@ -1,15 +1,21 @@
-// ESTADO GLOBAL
+//Estado Global
 let ws = null;
 let authToken = localStorage.getItem('authToken');
 let currentUser = null;
 let readings = [];
 let isPaused = false;
 let readingCounter = 0;
+let catalogoVehiculos = {};
+let vehiculoSeleccionado = null;
+let currentStep = 1;
 
+// =====================
 // ELEMENTOS DEL DOM
+// =====================
 const $ = id => document.getElementById(id);
 
 const elements = {
+    // Login
     loginOverlay: $('loginOverlay'),
     appContainer: $('appContainer'),
     loginForm: $('loginForm'),
@@ -21,6 +27,17 @@ const elements = {
     logoutBtn: $('logoutBtn'),
     adminBtn: $('adminBtn'),
     
+    // Navegación
+    seccionMonitoreo: $('seccionMonitoreo'),
+    seccionVehiculos: $('seccionVehiculos'),
+    seccionHistorial: $('seccionHistorial'),
+    
+    // Vehículo activo
+    vehiculoActivo: $('vehiculoActivo'),
+    vehiculoActivoText: $('vehiculoActivoText'),
+    deseleccionarVehiculo: $('deseleccionarVehiculo'),
+    
+    // ESP32
     esp32StatusIcon: $('esp32StatusIcon'),
     esp32StatusText: $('esp32StatusText'),
     esp32StatusDetail: $('esp32StatusDetail'),
@@ -28,6 +45,7 @@ const elements = {
     lastUpdate: $('lastUpdate'),
     wsStatus: $('wsStatus'),
     
+    // Sensores
     coValue: $('coValue'),
     hcValue: $('hcValue'),
     coStatus: $('coStatus'),
@@ -37,6 +55,7 @@ const elements = {
     avgCO: $('avgCO'),
     avgHC: $('avgHC'),
     
+    // Controles
     pauseBtn: $('pauseBtn'),
     pauseText: $('pauseText'),
     pauseIcon: $('pauseIcon'),
@@ -45,6 +64,7 @@ const elements = {
     readingCount: $('readingCount'),
     historyBody: $('historyBody'),
     
+    // Modales
     pdfModal: $('pdfModal'),
     cancelPdfBtn: $('cancelPdfBtn'),
     confirmPdfBtn: $('confirmPdfBtn'),
@@ -72,10 +92,57 @@ const elements = {
     deleteUserName: $('deleteUserName'),
     deleteUserId: $('deleteUserId'),
     cancelDeleteBtn: $('cancelDeleteBtn'),
-    confirmDeleteBtn: $('confirmDeleteBtn')
+    confirmDeleteBtn: $('confirmDeleteBtn'),
+    
+    // Vehículos
+    buscarPlacas: $('buscarPlacas'),
+    btnBuscarVehiculo: $('btnBuscarVehiculo'),
+    btnNuevoVehiculo: $('btnNuevoVehiculo'),
+    vehicleFormContainer: $('vehicleFormContainer'),
+    vehiculoForm: $('vehiculoForm'),
+    vehiculoId: $('vehiculoId'),
+    vehiclesGrid: $('vehiclesGrid'),
+    
+    // Campos del formulario vehículo
+    vPlacas: $('vPlacas'),
+    vVin: $('vVin'),
+    vMarca: $('vMarca'),
+    vSubmarca: $('vSubmarca'),
+    vLinea: $('vLinea'),
+    vAnio: $('vAnio'),
+    vCombustible: $('vCombustible'),
+    vCilindros: $('vCilindros'),
+    vCilindrada: $('vCilindrada'),
+    vCarroceria: $('vCarroceria'),
+    vClase: $('vClase'),
+    vServicio: $('vServicio'),
+    vTraccion: $('vTraccion'),
+    vPeso: $('vPeso'),
+    vTarjeta: $('vTarjeta'),
+    vOdometro: $('vOdometro'),
+    vFolioAnterior: $('vFolioAnterior'),
+    vVigencia: $('vVigencia'),
+    vTieneMulta: $('vTieneMulta'),
+    vFechaMulta: $('vFechaMulta'),
+    vFolioMulta: $('vFolioMulta'),
+    vObservaciones: $('vObservaciones'),
+    
+    // Modal selección vehículo
+    selectVehicleModal: $('selectVehicleModal'),
+    vehiclePreview: $('vehiclePreview'),
+    selectVehicleId: $('selectVehicleId'),
+    cancelSelectVehicle: $('cancelSelectVehicle'),
+    confirmSelectVehicle: $('confirmSelectVehicle'),
+    
+    // Historial
+    filtroVehiculo: $('filtroVehiculo'),
+    btnFiltrarHistorial: $('btnFiltrarHistorial'),
+    historialCompleto: $('historialCompleto')
 };
 
+// =====================
 // INICIALIZACIÓN
+// =====================
 document.addEventListener('DOMContentLoaded', () => {
     if (authToken) {
         verifyToken();
@@ -83,29 +150,62 @@ document.addEventListener('DOMContentLoaded', () => {
         showLogin();
     }
     setupEventListeners();
+    loadCatalogo();
+    populateYears();
 });
 
 function setupEventListeners() {
+    // Login
     elements.loginForm.addEventListener('submit', handleLogin);
     elements.logoutBtn.addEventListener('click', handleLogout);
     
+    // Navegación
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchSection(btn.dataset.section));
+    });
+    
+    // Controles monitoreo
     elements.pauseBtn.addEventListener('click', togglePause);
     elements.clearBtn.addEventListener('click', clearHistory);
     elements.pdfBtn.addEventListener('click', () => elements.pdfModal.classList.add('active'));
     elements.cancelPdfBtn.addEventListener('click', () => elements.pdfModal.classList.remove('active'));
     elements.confirmPdfBtn.addEventListener('click', generatePDF);
     
+    // Admin
     elements.adminBtn.addEventListener('click', openAdminModal);
     elements.closeAdminModal.addEventListener('click', () => elements.adminModal.classList.remove('active'));
     elements.addUserBtn.addEventListener('click', () => openUserForm());
-    
     elements.closeUserFormModal.addEventListener('click', () => elements.userFormModal.classList.remove('active'));
     elements.cancelUserForm.addEventListener('click', () => elements.userFormModal.classList.remove('active'));
     elements.userForm.addEventListener('submit', handleUserFormSubmit);
-    
     elements.cancelDeleteBtn.addEventListener('click', () => elements.deleteModal.classList.remove('active'));
     elements.confirmDeleteBtn.addEventListener('click', handleDeleteUser);
     
+    // Vehículos
+    elements.btnBuscarVehiculo.addEventListener('click', buscarVehiculo);
+    elements.buscarPlacas.addEventListener('keypress', (e) => { if (e.key === 'Enter') buscarVehiculo(); });
+    elements.btnNuevoVehiculo.addEventListener('click', mostrarFormularioNuevo);
+    elements.vehiculoForm.addEventListener('submit', handleVehiculoSubmit);
+    elements.vMarca.addEventListener('change', actualizarSubmarcas);
+    elements.vTieneMulta.addEventListener('change', toggleMultaFields);
+    
+    // Pasos del formulario
+    document.querySelectorAll('.btn-next').forEach(btn => {
+        btn.addEventListener('click', () => goToStep(parseInt(btn.dataset.next)));
+    });
+    document.querySelectorAll('.btn-prev').forEach(btn => {
+        btn.addEventListener('click', () => goToStep(parseInt(btn.dataset.prev)));
+    });
+    
+    // Vehículo seleccionado
+    elements.deseleccionarVehiculo.addEventListener('click', deseleccionarVehiculo);
+    elements.cancelSelectVehicle.addEventListener('click', () => elements.selectVehicleModal.classList.remove('active'));
+    elements.confirmSelectVehicle.addEventListener('click', confirmarSeleccionVehiculo);
+    
+    // Historial
+    elements.btnFiltrarHistorial.addEventListener('click', filtrarHistorial);
+    
+    // Cerrar modales al hacer clic fuera
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) overlay.classList.remove('active');
@@ -113,14 +213,39 @@ function setupEventListeners() {
     });
 }
 
+// =====================
+// NAVEGACIÓN
+// =====================
+function switchSection(section) {
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.nav-btn[data-section="${section}"]`).classList.add('active');
+    
+    document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
+    
+    switch(section) {
+        case 'monitoreo':
+            elements.seccionMonitoreo.classList.add('active');
+            break;
+        case 'vehiculos':
+            elements.seccionVehiculos.classList.add('active');
+            loadVehiculos();
+            break;
+        case 'historial':
+            elements.seccionHistorial.classList.add('active');
+            loadVehiculosParaFiltro();
+            break;
+    }
+}
+
+// =====================
 // AUTENTICACIÓN
+// =====================
 async function verifyToken() {
     try {
         const res = await fetch('/api/auth/verify', {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
         const data = await res.json();
-        
         if (data.success) {
             currentUser = data.user;
             showApp();
@@ -138,16 +263,15 @@ async function handleLogin(e) {
     e.preventDefault();
     elements.loginError.textContent = '';
     
-    const username = elements.username.value.trim();
-    const password = elements.password.value;
-    
     try {
         const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ 
+                username: elements.username.value.trim(), 
+                password: elements.password.value 
+            })
         });
-        
         const data = await res.json();
         
         if (data.success) {
@@ -182,17 +306,18 @@ function showApp() {
     elements.loginOverlay.style.display = 'none';
     elements.appContainer.style.display = 'block';
     elements.currentUser.textContent = currentUser.name;
-    
     elements.userRole.textContent = currentUser.role === 'admin' ? 'Admin' : 'Usuario';
     elements.userRole.className = 'user-role ' + currentUser.role;
-    
     elements.adminBtn.style.display = currentUser.role === 'admin' ? 'inline-flex' : 'none';
     
     connectWebSocket();
     loadHistory();
+    loadVehiculos();
 }
 
+// =====================
 // WEBSOCKET
+// =====================
 function connectWebSocket() {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${location.host}`);
@@ -220,6 +345,7 @@ function connectWebSocket() {
             case 'init':
                 if (message.esp32Status) updateESP32Status(message.esp32Status);
                 if (message.latestReading) updateSensorDisplay(message.latestReading);
+                if (message.currentVehicleId) loadVehiculoActivo(message.currentVehicleId);
                 break;
             case 'reading':
                 if (!isPaused) {
@@ -231,19 +357,25 @@ function connectWebSocket() {
             case 'esp32_status':
                 updateESP32Status(message);
                 break;
+            case 'vehiculo_seleccionado':
+                mostrarVehiculoActivo(message.vehiculo);
+                break;
+            case 'vehiculo_deseleccionado':
+                ocultarVehiculoActivo();
+                break;
         }
     };
 }
 
-// ACTUALIZAR UI
+// =====================
+// ACTUALIZAR UI SENSORES
+// =====================
 function updateESP32Status(status) {
     const connected = status.connected;
-    
     elements.esp32StatusIcon.className = 'status-icon ' + (connected ? 'connected' : 'disconnected');
     elements.esp32StatusText.textContent = connected ? 'Conectado' : 'Desconectado';
     elements.esp32StatusText.style.color = connected ? '#22c55e' : '#ef4444';
-    elements.esp32StatusDetail.textContent = connected ? 
-        `IP: ${status.ip || 'N/A'}` : 'Esperando datos del ESP32...';
+    elements.esp32StatusDetail.textContent = connected ? `IP: ${status.ip || 'N/A'}` : 'Esperando datos del ESP32...';
     elements.systemState.textContent = status.systemState || '--';
 }
 
@@ -306,7 +438,7 @@ function renderHistory() {
         return;
     }
     
-    const html = readings.slice(0, 50).map((r, i) => `
+    elements.historyBody.innerHTML = readings.slice(0, 50).map((r, i) => `
         <tr>
             <td>${readings.length - i}</td>
             <td>${new Date(r.timestamp).toLocaleTimeString('es-MX')}</td>
@@ -316,11 +448,11 @@ function renderHistory() {
             <td><span class="level-status ${getStatusClass(r.hc_status)}">${r.hc_status || '--'}</span></td>
         </tr>
     `).join('');
-    
-    elements.historyBody.innerHTML = html;
 }
 
+// =====================
 // CONTROLES
+// =====================
 function togglePause() {
     isPaused = !isPaused;
     elements.pauseText.textContent = isPaused ? 'Reanudar' : 'Pausar';
@@ -331,7 +463,6 @@ function togglePause() {
 
 async function clearHistory() {
     if (!confirm('¿Estás seguro de limpiar el historial?')) return;
-    
     try {
         await fetch('/api/readings', {
             method: 'DELETE',
@@ -346,10 +477,8 @@ async function clearHistory() {
     }
 }
 
-// PDF
 function generatePDF() {
     elements.pdfModal.classList.remove('active');
-    
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
@@ -359,9 +488,12 @@ function generatePDF() {
     doc.setFontSize(10);
     doc.text(`Generado: ${new Date().toLocaleString('es-MX')}`, 20, 30);
     doc.text(`Usuario: ${currentUser.name}`, 20, 36);
-    doc.text(`Total de lecturas: ${readings.length}`, 20, 42);
+    if (vehiculoSeleccionado) {
+        doc.text(`Vehículo: ${vehiculoSeleccionado.placas} - ${vehiculoSeleccionado.marca} ${vehiculoSeleccionado.submarca || ''}`, 20, 42);
+    }
+    doc.text(`Total de lecturas: ${readings.length}`, 20, 48);
     
-    let y = 55;
+    let y = 60;
     doc.setFontSize(10);
     doc.text('#', 20, y);
     doc.text('Hora', 35, y);
@@ -374,10 +506,7 @@ function generatePDF() {
     doc.setFontSize(9);
     
     readings.slice(0, 40).forEach((r, i) => {
-        if (y > 280) {
-            doc.addPage();
-            y = 20;
-        }
+        if (y > 280) { doc.addPage(); y = 20; }
         doc.text(String(i + 1), 20, y);
         doc.text(new Date(r.timestamp).toLocaleTimeString('es-MX'), 35, y);
         doc.text(String(r.co?.toFixed(1) || r.co_value || '--'), 70, y);
@@ -390,7 +519,406 @@ function generatePDF() {
     doc.save(`reporte_gases_${Date.now()}.pdf`);
 }
 
-// ADMINISTRACIÓN DE USUARIOS
+// =====================
+// CATÁLOGO Y AÑOS
+// =====================
+async function loadCatalogo() {
+    try {
+        const res = await fetch('/api/vehiculos/catalogo');
+        const data = await res.json();
+        if (data.success) {
+            catalogoVehiculos = data.catalogo;
+            populateMarcas();
+        }
+    } catch (error) {
+        console.error('Error cargando catálogo:', error);
+    }
+}
+
+function populateMarcas() {
+    const marcas = Object.keys(catalogoVehiculos).sort();
+    elements.vMarca.innerHTML = '<option value="">Selecciona una Marca</option>' +
+        marcas.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
+function actualizarSubmarcas() {
+    const marca = elements.vMarca.value;
+    if (!marca || !catalogoVehiculos[marca]) {
+        elements.vSubmarca.innerHTML = '<option value="">Primero selecciona Marca</option>';
+        return;
+    }
+    
+    const modelos = catalogoVehiculos[marca];
+    elements.vSubmarca.innerHTML = '<option value="">Selecciona Modelo</option>' +
+        modelos.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
+function populateYears() {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let y = currentYear + 1; y >= 1990; y--) {
+        years.push(y);
+    }
+    elements.vAnio.innerHTML = '<option value="">Selecciona Año</option>' +
+        years.map(y => `<option value="${y}">${y}</option>`).join('');
+}
+
+// =====================
+// VEHÍCULOS
+// =====================
+async function loadVehiculos() {
+    try {
+        const res = await fetch('/api/vehiculos', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            renderVehiculos(data.vehiculos);
+        }
+    } catch (error) {
+        elements.vehiclesGrid.innerHTML = '<p class="empty-message">Error al cargar vehículos</p>';
+    }
+}
+
+function renderVehiculos(vehiculos) {
+    if (vehiculos.length === 0) {
+        elements.vehiclesGrid.innerHTML = '<p class="empty-message">No hay vehículos registrados. Haga clic en "Nuevo" para agregar uno.</p>';
+        return;
+    }
+    
+    elements.vehiclesGrid.innerHTML = vehiculos.map(v => `
+        <div class="vehicle-card">
+            <div class="vehicle-card-header">
+                <div>
+                    <div class="vehicle-card-title">${v.marca} ${v.submarca || ''}</div>
+                    <div class="vehicle-card-subtitle">${v.linea || ''} ${v.anio || ''}</div>
+                </div>
+                <span class="vehicle-card-placas">${v.placas}</span>
+            </div>
+            <div class="vehicle-card-details">
+                <div class="vehicle-detail">
+                    <span class="vehicle-detail-label">Combustible:</span>
+                    <span class="vehicle-detail-value">${v.tipo_combustible || 'N/A'}</span>
+                </div>
+                <div class="vehicle-detail">
+                    <span class="vehicle-detail-label">Cilindros:</span>
+                    <span class="vehicle-detail-value">${v.num_cilindros || 'N/A'}</span>
+                </div>
+            </div>
+            <div class="vehicle-card-stats">
+                <div class="vehicle-stat">
+                    <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    ${v.total_lecturas || 0} lecturas
+                </div>
+            </div>
+            <div class="vehicle-card-actions">
+                <button class="btn btn-primary btn-small" onclick="abrirModalSeleccion(${v.id}, '${v.placas}', '${v.marca}', '${v.submarca || ''}')">
+                    Iniciar Prueba
+                </button>
+                <button class="btn btn-small" onclick="editarVehiculo(${v.id})">Editar</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function buscarVehiculo() {
+    const placas = elements.buscarPlacas.value.trim();
+    if (!placas) {
+        alert('Ingresa las placas a buscar');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/vehiculos/buscar/${encodeURIComponent(placas)}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            llenarFormularioVehiculo(data.vehiculo);
+            elements.vehicleFormContainer.style.display = 'block';
+            elements.vehiclesList.style.display = 'none';
+        } else {
+            if (confirm('Vehículo no encontrado. ¿Desea registrarlo?')) {
+                mostrarFormularioNuevo();
+                elements.vPlacas.value = placas.toUpperCase();
+            }
+        }
+    } catch (error) {
+        alert('Error al buscar vehículo');
+    }
+}
+
+function mostrarFormularioNuevo() {
+    elements.vehiculoForm.reset();
+    elements.vehiculoId.value = '';
+    elements.vehicleFormContainer.style.display = 'block';
+    elements.vehiclesList.style.display = 'none';
+    goToStep(1);
+}
+
+function llenarFormularioVehiculo(v) {
+    elements.vehiculoId.value = v.id || '';
+    elements.vPlacas.value = v.placas || '';
+    elements.vVin.value = v.vin || '';
+    elements.vMarca.value = v.marca || '';
+    actualizarSubmarcas();
+    setTimeout(() => { elements.vSubmarca.value = v.submarca || ''; }, 100);
+    elements.vLinea.value = v.linea || '';
+    elements.vAnio.value = v.anio || '';
+    elements.vCombustible.value = v.tipo_combustible || '';
+    elements.vCilindros.value = v.num_cilindros || '';
+    elements.vCilindrada.value = v.cilindrada || '';
+    elements.vCarroceria.value = v.tipo_carroceria || '';
+    elements.vClase.value = v.clase || '';
+    elements.vServicio.value = v.tipo_servicio || '';
+    elements.vTraccion.value = v.traccion || '';
+    elements.vPeso.value = v.peso_bruto || '';
+    elements.vTarjeta.value = v.tarjeta_circulacion || '';
+    elements.vOdometro.value = v.lectura_odometro || '';
+    elements.vFolioAnterior.value = v.folio_anterior || '';
+    elements.vVigencia.value = v.vigencia_anterior ? v.vigencia_anterior.split('T')[0] : '';
+    elements.vTieneMulta.checked = v.tiene_multa || false;
+    toggleMultaFields();
+    elements.vFechaMulta.value = v.fecha_pago_multa ? v.fecha_pago_multa.split('T')[0] : '';
+    elements.vFolioMulta.value = v.folio_multa || '';
+    elements.vObservaciones.value = v.observaciones || '';
+    goToStep(1);
+}
+
+async function editarVehiculo(id) {
+    try {
+        const res = await fetch(`/api/vehiculos/${id}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            llenarFormularioVehiculo(data.vehiculo);
+            elements.vehicleFormContainer.style.display = 'block';
+            elements.vehiclesList.style.display = 'none';
+        }
+    } catch (error) {
+        alert('Error al cargar vehículo');
+    }
+}
+
+function toggleMultaFields() {
+    const tieneMulta = elements.vTieneMulta.checked;
+    document.querySelectorAll('.multa-fields').forEach(el => {
+        el.style.display = tieneMulta ? 'block' : 'none';
+    });
+}
+
+function goToStep(step) {
+    currentStep = step;
+    
+    // Actualizar indicadores
+    document.querySelectorAll('.steps-indicator .step').forEach(s => {
+        const stepNum = parseInt(s.dataset.step);
+        s.classList.remove('active', 'completed');
+        if (stepNum === step) s.classList.add('active');
+        else if (stepNum < step) s.classList.add('completed');
+    });
+    
+    // Mostrar paso actual
+    document.querySelectorAll('.form-step').forEach(s => {
+        s.classList.remove('active');
+        if (parseInt(s.dataset.step) === step) s.classList.add('active');
+    });
+}
+
+async function handleVehiculoSubmit(e) {
+    e.preventDefault();
+    
+    const vehiculoData = {
+        placas: elements.vPlacas.value.trim(),
+        vin: elements.vVin.value.trim(),
+        marca: elements.vMarca.value,
+        submarca: elements.vSubmarca.value,
+        linea: elements.vLinea.value.trim(),
+        anio: elements.vAnio.value ? parseInt(elements.vAnio.value) : null,
+        tipo_combustible: elements.vCombustible.value,
+        num_cilindros: elements.vCilindros.value ? parseInt(elements.vCilindros.value) : null,
+        cilindrada: elements.vCilindrada.value.trim(),
+        tipo_carroceria: elements.vCarroceria.value,
+        clase: elements.vClase.value,
+        tipo_servicio: elements.vServicio.value,
+        traccion: elements.vTraccion.value,
+        peso_bruto: elements.vPeso.value.trim(),
+        tarjeta_circulacion: elements.vTarjeta.value.trim(),
+        lectura_odometro: elements.vOdometro.value.trim(),
+        folio_anterior: elements.vFolioAnterior.value.trim(),
+        vigencia_anterior: elements.vVigencia.value || null,
+        tiene_multa: elements.vTieneMulta.checked,
+        fecha_pago_multa: elements.vFechaMulta.value || null,
+        folio_multa: elements.vFolioMulta.value.trim(),
+        observaciones: elements.vObservaciones.value.trim()
+    };
+    
+    const id = elements.vehiculoId.value;
+    const url = id ? `/api/vehiculos/${id}` : '/api/vehiculos';
+    const method = id ? 'PUT' : 'POST';
+    
+    try {
+        const res = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(vehiculoData)
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            alert(id ? 'Vehículo actualizado correctamente' : 'Vehículo registrado correctamente');
+            elements.vehicleFormContainer.style.display = 'none';
+            elements.vehiclesList.style.display = 'block';
+            elements.vehiculoForm.reset();
+            loadVehiculos();
+        } else {
+            alert(data.message || 'Error al guardar vehículo');
+        }
+    } catch (error) {
+        alert('Error de conexión');
+    }
+}
+
+// =====================
+// SELECCIÓN DE VEHÍCULO
+// =====================
+function abrirModalSeleccion(id, placas, marca, submarca) {
+    elements.selectVehicleId.value = id;
+    elements.vehiclePreview.innerHTML = `
+        <strong>${placas}</strong><br>
+        ${marca} ${submarca}
+    `;
+    elements.selectVehicleModal.classList.add('active');
+}
+
+async function confirmarSeleccionVehiculo() {
+    const id = elements.selectVehicleId.value;
+    
+    try {
+        const res = await fetch(`/api/vehiculos/seleccionar/${id}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            elements.selectVehicleModal.classList.remove('active');
+            mostrarVehiculoActivo(data.vehiculo);
+            switchSection('monitoreo');
+        } else {
+            alert(data.message || 'Error al seleccionar vehículo');
+        }
+    } catch (error) {
+        alert('Error de conexión');
+    }
+}
+
+function mostrarVehiculoActivo(vehiculo) {
+    vehiculoSeleccionado = vehiculo;
+    elements.vehiculoActivoText.textContent = `${vehiculo.placas} - ${vehiculo.marca} ${vehiculo.submarca || ''}`;
+    elements.vehiculoActivo.style.display = 'flex';
+}
+
+function ocultarVehiculoActivo() {
+    vehiculoSeleccionado = null;
+    elements.vehiculoActivo.style.display = 'none';
+}
+
+async function deseleccionarVehiculo() {
+    if (!confirm('¿Desea terminar la prueba de este vehículo?')) return;
+    
+    try {
+        await fetch('/api/vehiculos/deseleccionar', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        ocultarVehiculoActivo();
+    } catch (error) {
+        alert('Error al deseleccionar vehículo');
+    }
+}
+
+async function loadVehiculoActivo(id) {
+    try {
+        const res = await fetch(`/api/vehiculos/${id}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarVehiculoActivo(data.vehiculo);
+        }
+    } catch (error) {
+        console.error('Error loading vehículo activo:', error);
+    }
+}
+
+// =====================
+// HISTORIAL
+// =====================
+async function loadVehiculosParaFiltro() {
+    try {
+        const res = await fetch('/api/vehiculos', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            elements.filtroVehiculo.innerHTML = '<option value="">Todos los vehículos</option>' +
+                data.vehiculos.map(v => `<option value="${v.id}">${v.placas} - ${v.marca} ${v.submarca || ''}</option>`).join('');
+        }
+    } catch (error) {
+        console.error('Error cargando vehículos para filtro:', error);
+    }
+}
+
+async function filtrarHistorial() {
+    const vehiculoId = elements.filtroVehiculo.value;
+    
+    try {
+        const url = vehiculoId ? `/api/readings/history?vehiculo_id=${vehiculoId}` : '/api/readings/history';
+        const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            renderHistorialCompleto(data.readings);
+        }
+    } catch (error) {
+        alert('Error al cargar historial');
+    }
+}
+
+function renderHistorialCompleto(lecturas) {
+    if (lecturas.length === 0) {
+        elements.historialCompleto.innerHTML = '<tr><td colspan="6" class="empty-history">No hay lecturas registradas</td></tr>';
+        return;
+    }
+    
+    elements.historialCompleto.innerHTML = lecturas.map((r, i) => `
+        <tr>
+            <td>${i + 1}</td>
+            <td>${r.placas || 'Sin vehículo'}</td>
+            <td>${new Date(r.timestamp).toLocaleString('es-MX')}</td>
+            <td>${parseFloat(r.co_value).toFixed(1)}</td>
+            <td>${parseFloat(r.hc_value).toFixed(1)}</td>
+            <td><span class="level-status ${getStatusClass(r.co_status)}">${r.co_status}</span></td>
+        </tr>
+    `).join('');
+}
+
+// =====================
+// ADMIN USUARIOS
+// =====================
 async function openAdminModal() {
     elements.adminModal.classList.add('active');
     await loadUsers();
@@ -398,21 +926,16 @@ async function openAdminModal() {
 
 async function loadUsers() {
     try {
-        elements.usersTableBody.innerHTML = '<tr><td colspan="6" class="empty-history">Cargando usuarios...</td></tr>';
-        
         const res = await fetch('/api/admin/users', {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        
         const data = await res.json();
         
         if (data.success) {
             renderUsersTable(data.users);
-        } else {
-            elements.usersTableBody.innerHTML = '<tr><td colspan="6" class="empty-history">Error al cargar usuarios</td></tr>';
         }
     } catch (error) {
-        elements.usersTableBody.innerHTML = '<tr><td colspan="6" class="empty-history">Error de conexión</td></tr>';
+        elements.usersTableBody.innerHTML = '<tr><td colspan="6" class="empty-history">Error al cargar usuarios</td></tr>';
     }
 }
 
@@ -422,7 +945,7 @@ function renderUsersTable(users) {
         return;
     }
     
-    const html = users.map(user => `
+    elements.usersTableBody.innerHTML = users.map(user => `
         <tr>
             <td>${user.id}</td>
             <td>${user.username}</td>
@@ -437,8 +960,6 @@ function renderUsersTable(users) {
             </td>
         </tr>
     `).join('');
-    
-    elements.usersTableBody.innerHTML = html;
 }
 
 function openUserForm(id = null, username = '', name = '', email = '', role = 'user') {
@@ -488,7 +1009,7 @@ async function handleUserFormSubmit(e) {
         }
         userData.password = password;
     } else if (!userId) {
-        elements.userFormError.textContent = 'La contraseña es requerida para nuevos usuarios';
+        elements.userFormError.textContent = 'La contraseña es requerida';
         return;
     }
     
@@ -511,7 +1032,7 @@ async function handleUserFormSubmit(e) {
             elements.userFormModal.classList.remove('active');
             await loadUsers();
         } else {
-            elements.userFormError.textContent = data.message || 'Error al guardar usuario';
+            elements.userFormError.textContent = data.message || 'Error al guardar';
         }
     } catch (error) {
         elements.userFormError.textContent = 'Error de conexión';
@@ -539,7 +1060,7 @@ async function handleDeleteUser() {
             elements.deleteModal.classList.remove('active');
             await loadUsers();
         } else {
-            alert(data.message || 'Error al eliminar usuario');
+            alert(data.message || 'Error al eliminar');
         }
     } catch (error) {
         alert('Error de conexión');
