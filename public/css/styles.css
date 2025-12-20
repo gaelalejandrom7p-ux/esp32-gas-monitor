@@ -31,7 +31,6 @@ body {
     line-height: 1.5;
 }
 
-/* LOGIN */
 .login-overlay {
     position: fixed;
     top: 0; left: 0;
@@ -82,7 +81,6 @@ body {
 .login-footer { text-align: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-800); }
 .login-footer p { color: var(--gray-500); font-size: 0.875rem; }
 
-/* FORMS */
 .form-group { margin-bottom: 1.25rem; }
 
 .form-label {
@@ -151,7 +149,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 
 .form-grid .full-width { grid-column: 1 / -1; }
 
-/* BUTTONS */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -195,10 +192,8 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 }
 .btn-close:hover { color: var(--white); }
 
-/* APP CONTAINER */
 .app-container { min-height: 100vh; padding: 1rem; max-width: 1400px; margin: 0 auto; }
 
-/* HEADER */
 .header {
     display: flex;
     justify-content: space-between;
@@ -230,7 +225,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .user-role.admin { background: var(--purple); color: var(--white); }
 .user-role.user { background: var(--gray-700); color: var(--gray-300); }
 
-/* NAVEGACIÓN PRINCIPAL */
 .main-nav {
     display: flex;
     gap: 0.5rem;
@@ -276,7 +270,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     color: var(--black);
 }
 
-/* VEHÍCULO ACTIVO */
 .vehiculo-activo {
     display: flex;
     justify-content: space-between;
@@ -305,7 +298,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 
 .vehiculo-activo-info strong { color: var(--white); }
 
-/* SECCIONES DE CONTENIDO */
 .content-section { display: none; }
 .content-section.active { display: block; }
 
@@ -324,7 +316,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     font-size: 0.9rem;
 }
 
-/* BÚSQUEDA */
 .search-box {
     background: var(--gray-900);
     border: 1px solid var(--gray-800);
@@ -344,7 +335,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     min-width: 200px;
 }
 
-/* FORMULARIO VEHÍCULO */
 .vehicle-form-container {
     background: var(--gray-900);
     border: 1px solid var(--gray-800);
@@ -353,7 +343,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     margin-bottom: 1.5rem;
 }
 
-/* INDICADOR DE PASOS */
 .steps-indicator {
     display: flex;
     justify-content: center;
@@ -410,7 +399,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     font-weight: 500;
 }
 
-/* PASOS DEL FORMULARIO */
 .form-step { display: none; }
 .form-step.active { display: block; }
 
@@ -445,7 +433,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .form-actions .btn-prev { margin-right: auto; }
 .form-actions .btn-next, .form-actions .btn-primary { margin-left: auto; }
 
-/* LISTA DE VEHÍCULOS */
 .vehicles-list h3 {
     color: var(--white);
     margin-bottom: 1rem;
@@ -591,7 +578,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     grid-column: 1 / -1;
 }
 
-/* FILTROS */
 .filter-box {
     display: flex;
     gap: 0.75rem;
@@ -603,7 +589,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     max-width: 300px;
 }
 
-/* ESP32 STATUS */
 .esp32-status-panel {
     background: var(--gray-900);
     border: 1px solid var(--gray-800);
@@ -645,7 +630,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .info-label { font-size: 0.7rem; color: var(--gray-500); }
 .info-value { font-family: var(--font-mono); font-size: 0.8rem; color: var(--gray-300); }
 
-/* SENSORES */
 .sensors-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -718,7 +702,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .avg-label { color: var(--gray-500); }
 .avg-value { font-family: var(--font-mono); color: var(--gray-300); }
 
-/* CONTROL PANEL */
 .control-panel {
     background: var(--gray-900);
     border: 1px solid var(--gray-800);
@@ -733,8 +716,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .reading-count span { font-family: var(--font-mono); color: var(--green); }
 
 .controls-grid { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-
-/* HISTORY */
 .history-section {
     background: var(--gray-900);
     border: 1px solid var(--gray-800);
@@ -764,11 +745,7 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .empty-history { text-align: center; color: var(--gray-600); padding: 2rem !important; font-family: var(--font-display) !important; }
 
 .users-table-container { max-height: 400px; overflow-y: auto; }
-
-/* FOOTER */
 .footer { display: flex; justify-content: space-between; padding: 1rem; font-size: 0.7rem; color: var(--gray-600); flex-wrap: wrap; gap: 0.5rem; }
-
-/* MODALS */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0;
@@ -826,11 +803,9 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     font-size: 0.9rem;
 }
 
-/* ANIMATIONS */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 .pulse { animation: pulse 2s infinite; }
 
-/* RESPONSIVE */
 @media (max-width: 768px) {
     .header { flex-direction: column; align-items: flex-start; }
     .main-nav { justify-content: flex-start; }
