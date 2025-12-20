@@ -28,8 +28,6 @@ let latestReading = null;
 let esp32Status = { connected: false, lastSeen: null, ip: null, systemState: 'DESCONOCIDO' };
 let currentVehicleId = null;
 const connectedClients = new Set();
-
-// Catálogo de Marcas y Modelos
 const CATALOGO_VEHICULOS = {
     "Nissan": ["Versa", "Sentra", "March", "Kicks", "X-Trail", "Frontier", "NP300", "Altima", "Maxima", "Pathfinder", "Otro"],
     "Chevrolet": ["Aveo", "Spark", "Beat", "Cavalier", "Onix", "Trax", "Equinox", "Silverado", "Colorado", "Tahoe", "Suburban", "Otro"],
@@ -55,9 +53,8 @@ const CATALOGO_VEHICULOS = {
 };
 
 async function initializeDatabase() {
-    if (!pool) { console.log('⚠ No DATABASE_URL'); return; }
+    if (!pool) { console.log(' No DATABASE_URL'); return; }
     try {
-        // Tabla usuarios
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -79,7 +76,6 @@ async function initializeDatabase() {
             END $$;
         `);
         
-        // Tabla vehículos
         await pool.query(`
             CREATE TABLE IF NOT EXISTS vehiculos (
                 id SERIAL PRIMARY KEY,
@@ -115,7 +111,6 @@ async function initializeDatabase() {
             )
         `);
         
-        // Agregar columnas nuevas si no existen
         await pool.query(`
             DO $$ 
             BEGIN 
@@ -134,7 +129,6 @@ async function initializeDatabase() {
             END $$;
         `);
         
-        // Tabla lecturas con relación a vehículos
         await pool.query(`
             CREATE TABLE IF NOT EXISTS sensor_readings (
                 id SERIAL PRIMARY KEY,
@@ -148,8 +142,6 @@ async function initializeDatabase() {
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        
-        // Agregar columna vehiculo_id si no existe
         await pool.query(`
             DO $$ 
             BEGIN 
@@ -159,7 +151,6 @@ async function initializeDatabase() {
             END $$;
         `);
         
-        // Crear admin por defecto
         const adminExists = await pool.query("SELECT id FROM users WHERE username = 'admin'");
         if (adminExists.rows.length === 0) {
             const adminHash = await bcrypt.hash('adminTec176', 10);
@@ -167,11 +158,11 @@ async function initializeDatabase() {
                 "INSERT INTO users (username, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)",
                 ['admin', 'admin@cmec.app', adminHash, 'Administrador', 'admin']
             );
-            console.log('✓ Admin creado (usuario: admin)');
+            console.log(' Admin creado (usuario: admin)');
         }
         
-        console.log('✓ Conectado a PostgreSQL');
-        console.log('✓ Tablas verificadas (users, vehiculos, sensor_readings)');
+        console.log(' Conectado a PostgreSQL');
+        console.log(' Tablas verificadas (users, vehiculos, sensor_readings)');
     } catch (error) { 
         console.log('✗ Error BD:', error.message); 
     }
@@ -224,9 +215,6 @@ function requireAdmin(req, res, next) {
     next();
 }
 
-// =====================
-// ENDPOINTS ESP32
-// =====================
 app.post('/api/esp32/data', (req, res) => {
     const token = req.headers['x-esp32-token'];
     if (token !== ESP32_TOKEN) return res.status(401).json({ success: false, message: 'Token inválido' });
@@ -248,9 +236,6 @@ app.post('/api/esp32/data', (req, res) => {
 
 app.get('/api/esp32/status', (req, res) => res.json({ success: true, ...esp32Status }));
 
-// =====================
-// ENDPOINTS LECTURAS
-// =====================
 app.get('/api/readings/latest', (req, res) => res.json({ success: true, data: latestReading, esp32Status }));
 
 app.get('/api/readings/history', async (req, res) => {
@@ -274,9 +259,6 @@ app.delete('/api/readings', authenticateToken, async (req, res) => {
     res.json({ success: true });
 });
 
-// =====================
-// ENDPOINTS AUTH
-// =====================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ success: false, message: 'Credenciales requeridas' });
@@ -301,9 +283,6 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
     res.json({ success: true, user: req.user });
 });
 
-// =====================
-// ENDPOINTS ADMIN USUARIOS
-// =====================
 app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const result = await pool.query('SELECT id, username, email, name, role, created_at FROM users ORDER BY created_at DESC');
@@ -373,16 +352,11 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
     }
 });
 
-// =====================
-// ENDPOINTS VEHÍCULOS
-// =====================
 
-// Obtener catálogo de marcas y modelos
 app.get('/api/vehiculos/catalogo', (req, res) => {
     res.json({ success: true, catalogo: CATALOGO_VEHICULOS });
 });
 
-// Obtener todos los vehículos
 app.get('/api/vehiculos', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(`
@@ -398,7 +372,6 @@ app.get('/api/vehiculos', authenticateToken, async (req, res) => {
     }
 });
 
-// Obtener un vehículo por ID
 app.get('/api/vehiculos/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
@@ -412,7 +385,6 @@ app.get('/api/vehiculos/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Buscar vehículo por placas
 app.get('/api/vehiculos/buscar/:placas', authenticateToken, async (req, res) => {
     try {
         const { placas } = req.params;
@@ -426,7 +398,6 @@ app.get('/api/vehiculos/buscar/:placas', authenticateToken, async (req, res) => 
     }
 });
 
-// Crear vehículo
 app.post('/api/vehiculos', authenticateToken, async (req, res) => {
     try {
         const { 
@@ -442,7 +413,6 @@ app.post('/api/vehiculos', authenticateToken, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Placas y marca son requeridos' });
         }
         
-        // Verificar si ya existe
         const existing = await pool.query('SELECT id FROM vehiculos WHERE UPPER(placas) = UPPER($1)', [placas]);
         if (existing.rows.length > 0) {
             return res.status(409).json({ success: false, message: 'Ya existe un vehículo con esas placas' });
@@ -474,7 +444,6 @@ app.post('/api/vehiculos', authenticateToken, async (req, res) => {
     }
 });
 
-// Actualizar vehículo
 app.put('/api/vehiculos/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
@@ -518,11 +487,9 @@ app.put('/api/vehiculos/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Eliminar vehículo
 app.delete('/api/vehiculos/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        // Primero eliminar lecturas asociadas
         await pool.query('DELETE FROM sensor_readings WHERE vehiculo_id = $1', [id]);
         await pool.query('DELETE FROM vehiculos WHERE id = $1', [id]);
         res.json({ success: true, message: 'Vehículo eliminado' });
@@ -531,7 +498,6 @@ app.delete('/api/vehiculos/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Seleccionar vehículo actual para lecturas
 app.post('/api/vehiculos/seleccionar/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
@@ -546,15 +512,12 @@ app.post('/api/vehiculos/seleccionar/:id', authenticateToken, async (req, res) =
         res.status(500).json({ success: false, message: 'Error al seleccionar vehículo' });
     }
 });
-
-// Deseleccionar vehículo
 app.post('/api/vehiculos/deseleccionar', authenticateToken, (req, res) => {
     currentVehicleId = null;
     broadcastToClients({ type: 'vehiculo_deseleccionado' });
     res.json({ success: true, message: 'Vehículo deseleccionado' });
 });
 
-// Obtener lecturas de un vehículo específico
 app.get('/api/vehiculos/:id/lecturas', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
@@ -568,9 +531,6 @@ app.get('/api/vehiculos/:id/lecturas', authenticateToken, async (req, res) => {
     }
 });
 
-// =====================
-// ENDPOINTS GENERALES
-// =====================
 app.get('/api/health', (req, res) => res.json({ 
     success: true, 
     server: 'online', 
@@ -582,5 +542,5 @@ app.get('/api/health', (req, res) => res.json({
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 initializeDatabase().then(() => {
-    server.listen(PORT, '0.0.0.0', () => console.log(`🚀 ESP32 Gas Monitor V2.0 en puerto ${PORT}`));
+    server.listen(PORT, '0.0.0.0', () => console.log(` ESP32 Gas Monitor V2.0 en puerto ${PORT}`));
 });
