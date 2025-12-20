@@ -1,6 +1,4 @@
-// =====================
-// ESTADO GLOBAL
-// =====================
+
 let ws = null;
 let authToken = localStorage.getItem('authToken');
 let currentUser = null;
@@ -11,13 +9,9 @@ let catalogoVehiculos = {};
 let vehiculoSeleccionado = null;
 let currentStep = 1;
 
-// =====================
-// ELEMENTOS DEL DOM
-// =====================
 const $ = id => document.getElementById(id);
 
 const elements = {
-    // Login
     loginOverlay: $('loginOverlay'),
     appContainer: $('appContainer'),
     loginForm: $('loginForm'),
@@ -29,17 +23,14 @@ const elements = {
     logoutBtn: $('logoutBtn'),
     adminBtn: $('adminBtn'),
     
-    // Navegación
     seccionMonitoreo: $('seccionMonitoreo'),
     seccionVehiculos: $('seccionVehiculos'),
     seccionHistorial: $('seccionHistorial'),
     
-    // Vehículo activo
     vehiculoActivo: $('vehiculoActivo'),
     vehiculoActivoText: $('vehiculoActivoText'),
     deseleccionarVehiculo: $('deseleccionarVehiculo'),
     
-    // ESP32
     esp32StatusIcon: $('esp32StatusIcon'),
     esp32StatusText: $('esp32StatusText'),
     esp32StatusDetail: $('esp32StatusDetail'),
@@ -47,7 +38,6 @@ const elements = {
     lastUpdate: $('lastUpdate'),
     wsStatus: $('wsStatus'),
     
-    // Sensores
     coValue: $('coValue'),
     hcValue: $('hcValue'),
     coStatus: $('coStatus'),
@@ -57,7 +47,6 @@ const elements = {
     avgCO: $('avgCO'),
     avgHC: $('avgHC'),
     
-    // Controles
     pauseBtn: $('pauseBtn'),
     pauseText: $('pauseText'),
     pauseIcon: $('pauseIcon'),
@@ -66,7 +55,6 @@ const elements = {
     readingCount: $('readingCount'),
     historyBody: $('historyBody'),
     
-    // Modales
     pdfModal: $('pdfModal'),
     cancelPdfBtn: $('cancelPdfBtn'),
     confirmPdfBtn: $('confirmPdfBtn'),
@@ -96,7 +84,6 @@ const elements = {
     cancelDeleteBtn: $('cancelDeleteBtn'),
     confirmDeleteBtn: $('confirmDeleteBtn'),
     
-    // Vehículos
     buscarPlacas: $('buscarPlacas'),
     btnBuscarVehiculo: $('btnBuscarVehiculo'),
     btnNuevoVehiculo: $('btnNuevoVehiculo'),
@@ -107,7 +94,6 @@ const elements = {
     vehiclesGrid: $('vehiclesGrid'),
     vehiclesList: $('vehiclesList'),
     
-    // Campos del formulario vehículo - Paso 1
     vPlacas: $('vPlacas'),
     vVin: $('vVin'),
     vMarca: $('vMarca'),
@@ -115,14 +101,12 @@ const elements = {
     vLinea: $('vLinea'),
     vAnio: $('vAnio'),
     
-    // Campos del formulario vehículo - Paso 2 (Propietario)
     vPropietarioNombre: $('vPropietarioNombre'),
     vPropietarioTelefono: $('vPropietarioTelefono'),
     vPropietarioDomicilio: $('vPropietarioDomicilio'),
     vServicio: $('vServicio'),
     vBaseConcesionaria: $('vBaseConcesionaria'),
     
-    // Campos del formulario vehículo - Paso 3
     vCombustible: $('vCombustible'),
     vCilindros: $('vCilindros'),
     vCilindrada: $('vCilindrada'),
@@ -132,7 +116,6 @@ const elements = {
     vPeso: $('vPeso'),
     vTarjeta: $('vTarjeta'),
     
-    // Campos del formulario vehículo - Paso 4
     vOdometro: $('vOdometro'),
     vFolioAnterior: $('vFolioAnterior'),
     vVigencia: $('vVigencia'),
@@ -141,22 +124,16 @@ const elements = {
     vFolioMulta: $('vFolioMulta'),
     vObservaciones: $('vObservaciones'),
     
-    // Modal selección vehículo
     selectVehicleModal: $('selectVehicleModal'),
     vehiclePreview: $('vehiclePreview'),
     selectVehicleId: $('selectVehicleId'),
     cancelSelectVehicle: $('cancelSelectVehicle'),
     confirmSelectVehicle: $('confirmSelectVehicle'),
     
-    // Historial
     filtroVehiculo: $('filtroVehiculo'),
     btnFiltrarHistorial: $('btnFiltrarHistorial'),
     historialCompleto: $('historialCompleto')
 };
-
-// =====================
-// INICIALIZACIÓN
-// =====================
 document.addEventListener('DOMContentLoaded', () => {
     if (authToken) {
         verifyToken();
@@ -169,23 +146,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // Login
     elements.loginForm.addEventListener('submit', handleLogin);
     elements.logoutBtn.addEventListener('click', handleLogout);
-    
-    // Navegación
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => switchSection(btn.dataset.section));
     });
-    
-    // Controles monitoreo
     elements.pauseBtn.addEventListener('click', togglePause);
     elements.clearBtn.addEventListener('click', clearHistory);
     elements.pdfBtn.addEventListener('click', () => elements.pdfModal.classList.add('active'));
     elements.cancelPdfBtn.addEventListener('click', () => elements.pdfModal.classList.remove('active'));
     elements.confirmPdfBtn.addEventListener('click', generatePDF);
     
-    // Admin
     elements.adminBtn.addEventListener('click', openAdminModal);
     elements.closeAdminModal.addEventListener('click', () => elements.adminModal.classList.remove('active'));
     elements.addUserBtn.addEventListener('click', () => openUserForm());
@@ -194,8 +165,7 @@ function setupEventListeners() {
     elements.userForm.addEventListener('submit', handleUserFormSubmit);
     elements.cancelDeleteBtn.addEventListener('click', () => elements.deleteModal.classList.remove('active'));
     elements.confirmDeleteBtn.addEventListener('click', handleDeleteUser);
-    
-    // Vehículos
+
     elements.btnBuscarVehiculo.addEventListener('click', buscarVehiculo);
     elements.buscarPlacas.addEventListener('keypress', (e) => { if (e.key === 'Enter') buscarVehiculo(); });
     elements.btnNuevoVehiculo.addEventListener('click', mostrarFormularioNuevo);
@@ -205,7 +175,6 @@ function setupEventListeners() {
     elements.vTieneMulta.addEventListener('change', toggleMultaFields);
     elements.vServicio.addEventListener('change', toggleConcesionariaField);
     
-    // Pasos del formulario
     document.querySelectorAll('.btn-next').forEach(btn => {
         btn.addEventListener('click', () => goToStep(parseInt(btn.dataset.next)));
     });
@@ -213,15 +182,12 @@ function setupEventListeners() {
         btn.addEventListener('click', () => goToStep(parseInt(btn.dataset.prev)));
     });
     
-    // Vehículo seleccionado
     elements.deseleccionarVehiculo.addEventListener('click', deseleccionarVehiculo);
     elements.cancelSelectVehicle.addEventListener('click', () => elements.selectVehicleModal.classList.remove('active'));
     elements.confirmSelectVehicle.addEventListener('click', confirmarSeleccionVehiculo);
     
-    // Historial
     elements.btnFiltrarHistorial.addEventListener('click', filtrarHistorial);
     
-    // Cerrar modales al hacer clic fuera
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) overlay.classList.remove('active');
@@ -229,9 +195,6 @@ function setupEventListeners() {
     });
 }
 
-// =====================
-// NAVEGACIÓN
-// =====================
 function switchSection(section) {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelector(`.nav-btn[data-section="${section}"]`).classList.add('active');
@@ -253,9 +216,6 @@ function switchSection(section) {
     }
 }
 
-// =====================
-// AUTENTICACIÓN
-// =====================
 async function verifyToken() {
     try {
         const res = await fetch('/api/auth/verify', {
@@ -331,9 +291,6 @@ function showApp() {
     loadVehiculos();
 }
 
-// =====================
-// WEBSOCKET
-// =====================
 function connectWebSocket() {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${location.host}`);
@@ -383,9 +340,6 @@ function connectWebSocket() {
     };
 }
 
-// =====================
-// ACTUALIZAR UI SENSORES
-// =====================
 function updateESP32Status(status) {
     const connected = status.connected;
     elements.esp32StatusIcon.className = 'status-icon ' + (connected ? 'connected' : 'disconnected');
@@ -466,9 +420,6 @@ function renderHistory() {
     `).join('');
 }
 
-// =====================
-// CONTROLES
-// =====================
 function togglePause() {
     isPaused = !isPaused;
     elements.pauseText.textContent = isPaused ? 'Reanudar' : 'Pausar';
@@ -536,9 +487,6 @@ function generatePDF() {
     doc.save(`reporte_gases_${Date.now()}.pdf`);
 }
 
-// =====================
-// CATÁLOGO Y AÑOS
-// =====================
 async function loadCatalogo() {
     try {
         const res = await fetch('/api/vehiculos/catalogo');
@@ -580,9 +528,6 @@ function populateYears() {
         years.map(y => `<option value="${y}">${y}</option>`).join('');
 }
 
-// =====================
-// CAMPOS CONDICIONALES
-// =====================
 function toggleMultaFields() {
     const tieneMulta = elements.vTieneMulta.checked;
     document.querySelectorAll('.multa-fields').forEach(el => {
@@ -604,9 +549,6 @@ function toggleConcesionariaField() {
     }
 }
 
-// =====================
-// VEHÍCULOS
-// =====================
 async function loadVehiculos() {
     try {
         const res = await fetch('/api/vehiculos', {
@@ -722,7 +664,6 @@ function llenarFormularioVehiculo(v) {
     elements.vLinea.value = v.linea || '';
     elements.vAnio.value = v.anio || '';
     
-    // Propietario
     elements.vPropietarioNombre.value = v.propietario_nombre || '';
     elements.vPropietarioTelefono.value = v.propietario_telefono || '';
     elements.vPropietarioDomicilio.value = v.propietario_domicilio || '';
@@ -730,7 +671,6 @@ function llenarFormularioVehiculo(v) {
     toggleConcesionariaField();
     elements.vBaseConcesionaria.value = v.base_concesionaria || '';
     
-    // Especificaciones
     elements.vCombustible.value = v.tipo_combustible || '';
     elements.vCilindros.value = v.num_cilindros || '';
     elements.vCilindrada.value = v.cilindrada || '';
@@ -740,7 +680,6 @@ function llenarFormularioVehiculo(v) {
     elements.vPeso.value = v.peso_bruto || '';
     elements.vTarjeta.value = v.tarjeta_circulacion || '';
     
-    // Verificación
     elements.vOdometro.value = v.lectura_odometro || '';
     elements.vFolioAnterior.value = v.folio_anterior || '';
     elements.vVigencia.value = v.vigencia_anterior ? v.vigencia_anterior.split('T')[0] : '';
@@ -773,7 +712,6 @@ async function editarVehiculo(id) {
 function goToStep(step) {
     currentStep = step;
     
-    // Actualizar indicadores
     document.querySelectorAll('.steps-indicator .step').forEach(s => {
         const stepNum = parseInt(s.dataset.step);
         s.classList.remove('active', 'completed');
@@ -781,7 +719,6 @@ function goToStep(step) {
         else if (stepNum < step) s.classList.add('completed');
     });
     
-    // Mostrar paso actual
     document.querySelectorAll('.form-step').forEach(s => {
         s.classList.remove('active');
         if (parseInt(s.dataset.step) === step) s.classList.add('active');
@@ -791,7 +728,6 @@ function goToStep(step) {
 async function handleVehiculoSubmit(e) {
     e.preventDefault();
     
-    // Validar base concesionaria si es servicio público
     if (elements.vServicio.value === 'Público' && !elements.vBaseConcesionaria.value.trim()) {
         alert('La Base Concesionaria es requerida para vehículos de servicio público');
         goToStep(2);
@@ -806,14 +742,12 @@ async function handleVehiculoSubmit(e) {
         linea: elements.vLinea.value.trim(),
         anio: elements.vAnio.value ? parseInt(elements.vAnio.value) : null,
         
-        // Propietario
         propietario_nombre: elements.vPropietarioNombre.value.trim(),
         propietario_telefono: elements.vPropietarioTelefono.value.trim(),
         propietario_domicilio: elements.vPropietarioDomicilio.value.trim(),
         tipo_servicio: elements.vServicio.value,
         base_concesionaria: elements.vBaseConcesionaria.value.trim(),
         
-        // Especificaciones
         tipo_combustible: elements.vCombustible.value,
         num_cilindros: elements.vCilindros.value ? parseInt(elements.vCilindros.value) : null,
         cilindrada: elements.vCilindrada.value.trim(),
@@ -822,8 +756,7 @@ async function handleVehiculoSubmit(e) {
         traccion: elements.vTraccion.value,
         peso_bruto: elements.vPeso.value.trim(),
         tarjeta_circulacion: elements.vTarjeta.value.trim(),
-        
-        // Verificación
+     
         lectura_odometro: elements.vOdometro.value.trim(),
         folio_anterior: elements.vFolioAnterior.value.trim(),
         vigencia_anterior: elements.vVigencia.value || null,
@@ -861,9 +794,6 @@ async function handleVehiculoSubmit(e) {
     }
 }
 
-// =====================
-// SELECCIÓN DE VEHÍCULO
-// =====================
 function abrirModalSeleccion(id, placas, marca, submarca, propietario) {
     elements.selectVehicleId.value = id;
     elements.vehiclePreview.innerHTML = `
@@ -936,9 +866,6 @@ async function loadVehiculoActivo(id) {
     }
 }
 
-// =====================
-// HISTORIAL
-// =====================
 async function loadVehiculosParaFiltro() {
     try {
         const res = await fetch('/api/vehiculos', {
@@ -991,9 +918,6 @@ function renderHistorialCompleto(lecturas) {
     `).join('');
 }
 
-// =====================
-// ADMIN USUARIOS
-// =====================
 async function openAdminModal() {
     elements.adminModal.classList.add('active');
     await loadUsers();
