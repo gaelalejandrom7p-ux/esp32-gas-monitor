@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <!-- LOGIN -->
     <div class="login-overlay" id="loginOverlay">
         <div class="login-container">
             <div class="login-header">
@@ -42,8 +41,6 @@
             </div>
         </div>
     </div>
-
-    <!-- APP PRINCIPAL -->
     <div class="app-container" id="appContainer" style="display: none;">
         <header class="header">
             <div class="logo-section">
@@ -59,8 +56,6 @@
                 </div>
             </div>
         </header>
-
-        <!-- NAVEGACIÓN -->
         <nav class="main-nav">
             <button class="nav-btn active" data-section="monitoreo">
                 <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
@@ -75,8 +70,6 @@
                 Historial
             </button>
         </nav>
-
-        <!-- VEHÍCULO SELECCIONADO -->
         <div class="vehiculo-activo" id="vehiculoActivo" style="display: none;">
             <div class="vehiculo-activo-info">
                 <svg viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2-4H8L6 10l-2.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
@@ -84,8 +77,6 @@
             </div>
             <button class="btn btn-small btn-danger" id="deseleccionarVehiculo">Terminar Prueba</button>
         </div>
-
-        <!-- SECCIÓN MONITOREO -->
         <section class="content-section active" id="seccionMonitoreo">
             <section class="esp32-status-panel">
                 <div class="esp32-status">
@@ -143,7 +134,6 @@
                         <span class="avg-value" id="avgCO">--</span>
                     </div>
                 </article>
-
                 <article class="sensor-card">
                     <div class="sensor-header">
                         <div class="sensor-info">
@@ -171,7 +161,6 @@
                     </div>
                 </article>
             </section>
-
             <section class="control-panel">
                 <div class="control-header">
                     <span class="control-title">Panel de Control</span>
@@ -192,7 +181,6 @@
                     </button>
                 </div>
             </section>
-
             <section class="history-section">
                 <div class="history-header">
                     <span class="history-title">Historial de Lecturas (Tiempo Real)</span>
@@ -209,15 +197,11 @@
                 </div>
             </section>
         </section>
-
-        <!-- SECCIÓN CAPTURA VEHÍCULOS -->
         <section class="content-section" id="seccionVehiculos">
             <div class="section-header">
                 <h2>Captura de Vehículos</h2>
                 <p>Registre los datos del vehículo para iniciar la verificación</p>
             </div>
-
-            <!-- Búsqueda rápida -->
             <div class="search-box">
                 <div class="search-input-group">
                     <input type="text" id="buscarPlacas" class="form-input" placeholder="Buscar por placas...">
@@ -254,10 +238,7 @@
                             <span class="step-title">Verificación</span>
                         </div>
                     </div>
-
                     <input type="hidden" id="vehiculoId">
-
-                    <!-- PASO 1: Datos del Vehículo -->
                     <div class="form-step active" data-step="1">
                         <h3 class="step-header">
                             <svg viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2-4H8L6 10l-2.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
@@ -303,8 +284,6 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- PASO 2: Datos del Propietario -->
                     <div class="form-step" data-step="2">
                         <h3 class="step-header">
                             <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -348,8 +327,6 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- PASO 3: Especificaciones -->
                     <div class="form-step" data-step="3">
                         <h3 class="step-header">
                             <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
@@ -440,8 +417,6 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- PASO 4: Verificación -->
                     <div class="form-step" data-step="4">
                         <h3 class="step-header">
                             <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -492,8 +467,6 @@
                     </div>
                 </form>
             </div>
-
-            <!-- Lista de vehículos -->
             <div class="vehicles-list" id="vehiclesList">
                 <h3>Vehículos Registrados</h3>
                 <div class="vehicles-grid" id="vehiclesGrid">
@@ -501,8 +474,6 @@
                 </div>
             </div>
         </section>
-
-        <!-- SECCIÓN HISTORIAL -->
         <section class="content-section" id="seccionHistorial">
             <div class="section-header">
                 <h2>Historial de Verificaciones</h2>
@@ -525,15 +496,11 @@
                 </table>
             </div>
         </section>
-
         <footer class="footer">
             <span>ESP32 Gas Monitor V2.0</span>
             <span>Sistema de Monitoreo de Contaminación</span>
         </footer>
     </div>
-
-    <!-- MODALES -->
-    <!-- Modal PDF -->
     <div class="modal-overlay" id="pdfModal">
         <div class="modal">
             <h3 class="modal-title">Exportar a PDF</h3>
@@ -544,8 +511,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Modal Admin -->
     <div class="modal-overlay" id="adminModal">
         <div class="modal modal-large">
             <div class="modal-header">
@@ -569,8 +534,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Modal Usuario -->
     <div class="modal-overlay" id="userFormModal">
         <div class="modal">
             <div class="modal-header">
@@ -610,8 +573,6 @@
             </form>
         </div>
     </div>
-
-    <!-- Modal Eliminar Usuario -->
     <div class="modal-overlay" id="deleteModal">
         <div class="modal">
             <h3 class="modal-title">Confirmar Eliminación</h3>
@@ -624,8 +585,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Modal Seleccionar Vehículo para Prueba -->
     <div class="modal-overlay" id="selectVehicleModal">
         <div class="modal">
             <h3 class="modal-title">Iniciar Prueba de Verificación</h3>
@@ -638,7 +597,6 @@
             </div>
         </div>
     </div>
-
     <script src="js/app.js"></script>
 </body>
 </html>
