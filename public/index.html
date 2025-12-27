@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Gas Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- LOGIN -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="login-logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
+                    </svg>
+                </div>
+                <span class="login-subtitle">Sistema de Monitoreo V2.0</span>
+                <h1 class="login-title">ESP32 Gas Monitor</h1>
+                <p class="login-desc">Monitoreo remoto en tiempo real</p>
+            </div>
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="username">Usuario</label>
+                    <input type="text" id="username" class="form-input" placeholder="Ingresa tu usuario" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Contraseña</label>
+                    <input type="password" id="password" class="form-input" placeholder="Ingresa tu contraseña" required>
+                </div>
+                <div class="form-error" id="loginError"></div>
+                <button type="submit" class="btn btn-primary btn-full">Iniciar Sesión</button>
+            </form>
+            <div class="login-footer">
+                <p>Contacte al administrador para obtener acceso</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL -->
+    <div class="app-container" id="appContainer" style="display: none;">
+        <header class="header">
+            <div class="logo-section">
+                <span class="logo">Sistema de Monitoreo Remoto V2.0</span>
+                <h1 class="title">ESP32 <span>Gas Monitor</span></h1>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <span class="user-name" id="currentUser">Usuario</span>
+                    <span class="user-role" id="userRole"></span>
+                    <button class="btn btn-small" id="adminBtn" style="display: none;">Administrar Usuarios</button>
+                    <button class="btn btn-small" id="logoutBtn">Salir</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- NAVEGACIÓN -->
+        <nav class="main-nav">
+            <button class="nav-btn active" data-section="monitoreo">
+                <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Monitoreo
+            </button>
+            <button class="nav-btn" data-section="vehiculos">
+                <svg viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2-4H8L6 10l-2.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                Captura Vehículos
+            </button>
+            <button class="nav-btn" data-section="historial">
+                <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Historial
+            </button>
+        </nav>
+
+        <!-- VEHÍCULO SELECCIONADO -->
+        <div class="vehiculo-activo" id="vehiculoActivo" style="display: none;">
+            <div class="vehiculo-activo-info">
+                <svg viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2-4H8L6 10l-2.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                <span>Vehículo en prueba: <strong id="vehiculoActivoText">---</strong></span>
+            </div>
+            <button class="btn btn-small btn-danger" id="deseleccionarVehiculo">Terminar Prueba</button>
+        </div>
+
+        <!-- SECCIÓN MONITOREO -->
+        <section class="content-section active" id="seccionMonitoreo">
+            <section class="esp32-status-panel">
+                <div class="esp32-status">
+                    <div class="status-icon" id="esp32StatusIcon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>
+                        </svg>
+                    </div>
+                    <div class="status-info">
+                        <span class="status-label">Estado del ESP32</span>
+                        <span class="status-value" id="esp32StatusText">Esperando conexión...</span>
+                        <span class="status-detail" id="esp32StatusDetail">El ESP32 enviará datos automáticamente</span>
+                    </div>
+                </div>
+                <div class="connection-info">
+                    <div class="info-item">
+                        <span class="info-label">Estado del Sistema</span>
+                        <span class="info-value" id="systemState">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Última Actualización</span>
+                        <span class="info-value" id="lastUpdate">--:--:--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">WebSocket</span>
+                        <span class="info-value" id="wsStatus">Conectando...</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="sensors-grid">
+                <article class="sensor-card">
+                    <div class="sensor-header">
+                        <div class="sensor-info">
+                            <span class="sensor-label">Sensor TGS5042</span>
+                            <h2 class="sensor-name">Monóxido de Carbono</h2>
+                        </div>
+                        <div class="sensor-icon co">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg>
+                        </div>
+                    </div>
+                    <div class="value-display">
+                        <span class="value" id="coValue">---</span>
+                        <span class="unit">ppm</span>
+                    </div>
+                    <div class="level-indicator">
+                        <div class="level-header">
+                            <span class="level-label">Nivel</span>
+                            <span class="level-status" id="coStatus">Sin Datos</span>
+                        </div>
+                        <div class="level-bar"><div class="level-fill" id="coLevel"></div></div>
+                    </div>
+                    <div class="avg-display">
+                        <span class="avg-label">Promedio última prueba:</span>
+                        <span class="avg-value" id="avgCO">--</span>
+                    </div>
+                </article>
+
+                <article class="sensor-card">
+                    <div class="sensor-header">
+                        <div class="sensor-info">
+                            <span class="sensor-label">Sensor CGM6812-B00</span>
+                            <h2 class="sensor-name">Hidrocarburos</h2>
+                        </div>
+                        <div class="sensor-icon hc">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        </div>
+                    </div>
+                    <div class="value-display">
+                        <span class="value" id="hcValue">---</span>
+                        <span class="unit">ppm</span>
+                    </div>
+                    <div class="level-indicator">
+                        <div class="level-header">
+                            <span class="level-label">Nivel</span>
+                            <span class="level-status" id="hcStatus">Sin Datos</span>
+                        </div>
+                        <div class="level-bar"><div class="level-fill" id="hcLevel"></div></div>
+                    </div>
+                    <div class="avg-display">
+                        <span class="avg-label">Promedio última prueba:</span>
+                        <span class="avg-value" id="avgHC">--</span>
+                    </div>
+                </article>
+            </section>
+
+            <section class="control-panel">
+                <div class="control-header">
+                    <span class="control-title">Panel de Control</span>
+                    <span class="reading-count">Lecturas: <span id="readingCount">0</span></span>
+                </div>
+                <div class="controls-grid">
+                    <button class="btn" id="pauseBtn">
+                        <svg id="pauseIcon" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                        <span id="pauseText">Pausar</span>
+                    </button>
+                    <button class="btn btn-danger" id="clearBtn">
+                        <svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        Limpiar
+                    </button>
+                    <button class="btn btn-primary" id="pdfBtn">
+                        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg>
+                        Exportar PDF
+                    </button>
+                </div>
+            </section>
+
+            <section class="history-section">
+                <div class="history-header">
+                    <span class="history-title">Historial de Lecturas (Tiempo Real)</span>
+                </div>
+                <div class="history-container">
+                    <table class="history-table">
+                        <thead>
+                            <tr><th>#</th><th>Hora</th><th>CO</th><th>HC</th><th>Estado CO</th><th>Estado HC</th></tr>
+                        </thead>
+                        <tbody id="historyBody">
+                            <tr><td colspan="6" class="empty-history">Esperando datos del ESP32...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <!-- SECCIÓN CAPTURA VEHÍCULOS -->
+        <section class="content-section" id="seccionVehiculos">
+            <div class="section-header">
+                <h2>Captura de Vehículos</h2>
+                <p>Registre los datos del vehículo para iniciar la verificación</p>
+            </div>
+
+            <!-- Búsqueda rápida -->
+            <div class="search-box">
+                <div class="search-input-group">
+                    <input type="text" id="buscarPlacas" class="form-input" placeholder="Buscar por placas...">
+                    <button class="btn btn-primary" id="btnBuscarVehiculo">
+                        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                        Buscar
+                    </button>
+                    <button class="btn" id="btnNuevoVehiculo">
+                        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                        Nuevo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Formulario en pasos -->
+            <div class="vehicle-form-container" id="vehicleFormContainer" style="display: none;">
+                <form id="vehiculoForm">
+                    <!-- Indicador de pasos -->
+                    <div class="steps-indicator">
+                        <div class="step active" data-step="1">
+                            <span class="step-number">1</span>
+                            <span class="step-title">Vehículo</span>
+                        </div>
+                        <div class="step" data-step="2">
+                            <span class="step-number">2</span>
+                            <span class="step-title">Propietario</span>
+                        </div>
+                        <div class="step" data-step="3">
+                            <span class="step-number">3</span>
+                            <span class="step-title">Especificaciones</span>
+                        </div>
+                        <div class="step" data-step="4">
+                            <span class="step-number">4</span>
+                            <span class="step-title">Verificación</span>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="vehiculoId">
+
+                    <!-- PASO 1: Datos del Vehículo -->
+                    <div class="form-step active" data-step="1">
+                        <h3 class="step-header">
+                            <svg viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2-4H8L6 10l-2.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                            Datos del Vehículo
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Placas *</label>
+                                <input type="text" id="vPlacas" class="form-input" placeholder="ABC-123" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Número de Serie / VIN</label>
+                                <input type="text" id="vVin" class="form-input" placeholder="Ingresar VIN">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Marca *</label>
+                                <select id="vMarca" class="form-input" required>
+                                    <option value="">Selecciona una Marca</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Submarca / Modelo</label>
+                                <select id="vSubmarca" class="form-input">
+                                    <option value="">Primero selecciona Marca</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Línea</label>
+                                <input type="text" id="vLinea" class="form-input" placeholder="Ej: LX, Sport, Limited">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Año Modelo</label>
+                                <select id="vAnio" class="form-input">
+                                    <option value="">Selecciona Año</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn" id="btnCancelarForm">Cancelar</button>
+                            <button type="button" class="btn btn-primary btn-next" data-next="2">
+                                Siguiente
+                                <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PASO 2: Datos del Propietario -->
+                    <div class="form-step" data-step="2">
+                        <h3 class="step-header">
+                            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            Datos del Propietario
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label class="form-label">Nombre Completo del Propietario *</label>
+                                <input type="text" id="vPropietarioNombre" class="form-input" placeholder="Nombre completo" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Teléfono</label>
+                                <input type="tel" id="vPropietarioTelefono" class="form-input" placeholder="10 dígitos">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tipo de Servicio *</label>
+                                <select id="vServicio" class="form-input" required>
+                                    <option value="">Selecciona</option>
+                                    <option value="Particular">Particular (Privado)</option>
+                                    <option value="Público">Público (Taxi/Transporte)</option>
+                                </select>
+                            </div>
+                            <div class="form-group full-width">
+                                <label class="form-label">Domicilio</label>
+                                <textarea id="vPropietarioDomicilio" class="form-input" rows="2" placeholder="Calle, número, colonia, ciudad..."></textarea>
+                            </div>
+                            <div class="form-group full-width concesionaria-field" style="display: none;">
+                                <label class="form-label">Base Concesionaria *</label>
+                                <input type="text" id="vBaseConcesionaria" class="form-input" placeholder="Nombre de la base o concesionaria">
+                                <span class="form-hint">Requerido para vehículos de servicio público</span>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-prev" data-prev="1">
+                                <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+                                Anterior
+                            </button>
+                            <button type="button" class="btn btn-primary btn-next" data-next="3">
+                                Siguiente
+                                <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PASO 3: Especificaciones -->
+                    <div class="form-step" data-step="3">
+                        <h3 class="step-header">
+                            <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                            Especificaciones Técnicas
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Tipo de Combustible</label>
+                                <select id="vCombustible" class="form-input">
+                                    <option value="">Selecciona</option>
+                                    <option value="Gasolina">Gasolina</option>
+                                    <option value="Diesel">Diesel</option>
+                                    <option value="Gas LP">Gas LP</option>
+                                    <option value="Gas Natural">Gas Natural</option>
+                                    <option value="Híbrido">Híbrido</option>
+                                    <option value="Eléctrico">Eléctrico</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Número de Cilindros</label>
+                                <select id="vCilindros" class="form-input">
+                                    <option value="">Selecciona</option>
+                                    <option value="3">3 Cilindros</option>
+                                    <option value="4">4 Cilindros</option>
+                                    <option value="5">5 Cilindros</option>
+                                    <option value="6">6 Cilindros</option>
+                                    <option value="8">8 Cilindros</option>
+                                    <option value="10">10 Cilindros</option>
+                                    <option value="12">12 Cilindros</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Cilindrada (cm³)</label>
+                                <input type="text" id="vCilindrada" class="form-input" placeholder="Ej: 1600">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tipo de Carrocería</label>
+                                <select id="vCarroceria" class="form-input">
+                                    <option value="">Selecciona</option>
+                                    <option value="Sedán">Sedán</option>
+                                    <option value="Hatchback">Hatchback</option>
+                                    <option value="SUV">SUV</option>
+                                    <option value="Pickup">Pickup</option>
+                                    <option value="Van">Van</option>
+                                    <option value="Coupé">Coupé</option>
+                                    <option value="Convertible">Convertible</option>
+                                    <option value="Camión">Camión</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Clase</label>
+                                <select id="vClase" class="form-input">
+                                    <option value="">Selecciona</option>
+                                    <option value="Subcompacto">Subcompacto</option>
+                                    <option value="Compacto">Compacto</option>
+                                    <option value="Mediano">Mediano</option>
+                                    <option value="Grande">Grande</option>
+                                    <option value="Lujo">Lujo</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tracción</label>
+                                <select id="vTraccion" class="form-input">
+                                    <option value="">Selecciona</option>
+                                    <option value="Delantera">Delantera</option>
+                                    <option value="Trasera">Trasera</option>
+                                    <option value="4x4">4x4</option>
+                                    <option value="AWD">AWD</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Peso Bruto Vehicular</label>
+                                <input type="text" id="vPeso" class="form-input" placeholder="Ej: 1500 kg">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label"># Tarjeta de Circulación</label>
+                                <input type="text" id="vTarjeta" class="form-input" placeholder="Número de tarjeta">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-prev" data-prev="2">
+                                <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+                                Anterior
+                            </button>
+                            <button type="button" class="btn btn-primary btn-next" data-next="4">
+                                Siguiente
+                                <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PASO 4: Verificación -->
+                    <div class="form-step" data-step="4">
+                        <h3 class="step-header">
+                            <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Datos de Verificación
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Lectura Odómetro</label>
+                                <input type="text" id="vOdometro" class="form-input" placeholder="Ej: 45000 km">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Folio Anterior</label>
+                                <input type="text" id="vFolioAnterior" class="form-input" placeholder="Folio verificación anterior">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Vigencia Anterior</label>
+                                <input type="date" id="vVigencia" class="form-input">
+                            </div>
+                            <div class="form-group form-group-checkbox">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="vTieneMulta">
+                                    <span>¿El vehículo tiene multas?</span>
+                                </label>
+                            </div>
+                            <div class="form-group multa-fields" style="display: none;">
+                                <label class="form-label">Fecha Pago Multa</label>
+                                <input type="date" id="vFechaMulta" class="form-input">
+                            </div>
+                            <div class="form-group multa-fields" style="display: none;">
+                                <label class="form-label">Folio de Multa</label>
+                                <input type="text" id="vFolioMulta" class="form-input" placeholder="Número de folio">
+                            </div>
+                            <div class="form-group full-width">
+                                <label class="form-label">Observaciones</label>
+                                <textarea id="vObservaciones" class="form-input" rows="3" placeholder="Notas adicionales..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-prev" data-prev="3">
+                                <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+                                Anterior
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                                Guardar Vehículo
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Lista de vehículos -->
+            <div class="vehicles-list" id="vehiclesList">
+                <h3>Vehículos Registrados</h3>
+                <div class="vehicles-grid" id="vehiclesGrid">
+                    <p class="empty-message">Cargando vehículos...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN HISTORIAL -->
+        <section class="content-section" id="seccionHistorial">
+            <div class="section-header">
+                <h2>Historial de Verificaciones</h2>
+                <p>Consulte el historial de lecturas por vehículo</p>
+            </div>
+            <div class="filter-box">
+                <select id="filtroVehiculo" class="form-input">
+                    <option value="">Todos los vehículos</option>
+                </select>
+                <button class="btn btn-primary" id="btnFiltrarHistorial">Filtrar</button>
+            </div>
+            <div class="history-container">
+                <table class="history-table">
+                    <thead>
+                        <tr><th>#</th><th>Vehículo</th><th>Fecha/Hora</th><th>CO</th><th>HC</th><th>Estado</th></tr>
+                    </thead>
+                    <tbody id="historialCompleto">
+                        <tr><td colspan="6" class="empty-history">Seleccione un vehículo para ver su historial</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <span>ESP32 Gas Monitor V2.0</span>
+            <span>Sistema de Monitoreo de Contaminación</span>
+        </footer>
+    </div>
+
+    <!-- MODALES -->
+    <div class="modal-overlay" id="pdfModal">
+        <div class="modal">
+            <h3 class="modal-title">Exportar a PDF</h3>
+            <p class="modal-text">Se generará un reporte con todas las lecturas. ¿Continuar?</p>
+            <div class="modal-actions">
+                <button class="btn" id="cancelPdfBtn">Cancelar</button>
+                <button class="btn btn-primary" id="confirmPdfBtn">Generar PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="adminModal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3 class="modal-title">Administración de Usuarios</h3>
+                <button class="btn-close" id="closeAdminModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="addUserBtn">+ Nuevo Usuario</button>
+                </div>
+                <div class="users-table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr><th>ID</th><th>Usuario</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Acciones</th></tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr><td colspan="6" class="empty-history">Cargando usuarios...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="userFormModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="userFormTitle">Nuevo Usuario</h3>
+                <button class="btn-close" id="closeUserFormModal">&times;</button>
+            </div>
+            <form id="userForm">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label class="form-label">Nombre completo</label>
+                    <input type="text" id="userFormName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Usuario</label>
+                    <input type="text" id="userFormUsername" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="userFormEmail" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contraseña <span id="passwordHint">(mínimo 8 caracteres)</span></label>
+                    <input type="password" id="userFormPassword" class="form-input" minlength="8">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Rol</label>
+                    <select id="userFormRole" class="form-input">
+                        <option value="user">Usuario</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div class="form-error" id="userFormError"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" id="cancelUserForm">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <h3 class="modal-title">Confirmar Eliminación</h3>
+            <p class="modal-text">¿Eliminar al usuario <strong id="deleteUserName"></strong>?</p>
+            <p class="modal-text text-danger">Esta acción no se puede deshacer.</p>
+            <input type="hidden" id="deleteUserId">
+            <div class="modal-actions">
+                <button class="btn" id="cancelDeleteBtn">Cancelar</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="selectVehicleModal">
+        <div class="modal">
+            <h3 class="modal-title">Iniciar Prueba de Verificación</h3>
+            <p class="modal-text">¿Desea iniciar la prueba de verificación para este vehículo?</p>
+            <div class="vehicle-preview" id="vehiclePreview"></div>
+            <input type="hidden" id="selectVehicleId">
+            <div class="modal-actions">
+                <button class="btn" id="cancelSelectVehicle">Cancelar</button>
+                <button class="btn btn-primary" id="confirmSelectVehicle">Iniciar Prueba</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
